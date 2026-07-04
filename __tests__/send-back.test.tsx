@@ -1,3 +1,7 @@
+jest.mock('@react-native-async-storage/async-storage', () =>
+  require('@react-native-async-storage/async-storage/jest/async-storage-mock'),
+);
+
 import { fireEvent, render, waitFor } from '@testing-library/react-native';
 import { Alert, Linking } from 'react-native';
 
@@ -7,6 +11,11 @@ import { useSessionStore } from '../src/store/sessionStore';
 import { useSettingsStore } from '../src/store/settingsStore';
 import { copyToClipboard } from '../src/utils/clipboard';
 import { saveRewrite } from '../src/services/historyService';
+
+jest.mock('../src/services/settingsService', () => ({
+  fetchRemoteSettings: jest.fn().mockResolvedValue(null),
+  syncSettingsToRemote: jest.fn().mockResolvedValue(undefined),
+}));
 
 jest.mock('expo-router', () => ({
   router: {
