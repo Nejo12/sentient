@@ -18,6 +18,10 @@ import { IntentCard } from '../../src/components/IntentCard';
 import { UnderstandingChip } from '../../src/components/UnderstandingChip';
 import { strings } from '../../src/constants/strings';
 import { UNDERSTANDING_OPTIONS } from '../../src/constants/understanding';
+import {
+  canRewrite,
+  incrementRewriteCount,
+} from '../../src/services/entitlements';
 import { fetchRewrites } from '../../src/services/rewriteApi';
 import { parseShareIntent } from '../../src/services/shareIntent';
 import { useSessionStore } from '../../src/store/sessionStore';
@@ -160,6 +164,12 @@ export default function ChooseScreen() {
     setError(null);
     setLoading(true);
 
+    if (!(await canRewrite())) {
+      setError(`${strings.pro.limitReached} ${strings.pro.nudge}`);
+      setLoading(false);
+      return;
+    }
+
     const response = await fetchRewrites({
       capturedMessage,
       roughDraft: roughDraft.trim() ? roughDraft : null,
@@ -174,6 +184,7 @@ export default function ChooseScreen() {
       return;
     }
 
+    await incrementRewriteCount();
     setResults(response.options, response.perspective ?? null);
     setLoading(false);
     router.push('/(flow)/compare');

@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  Alert,
   Modal,
   Pressable,
   ScrollView,
@@ -16,6 +15,7 @@ import { Card } from '../../src/components/Card';
 import { Toggle } from '../../src/components/Toggle';
 import { strings } from '../../src/constants/strings';
 import { UNDERSTANDING_OPTIONS } from '../../src/constants/understanding';
+import { presentPaywall } from '../../src/services/entitlements';
 import { useSettingsStore } from '../../src/store/settingsStore';
 import { colors, radii, shadows, spacing } from '../../src/theme/tokens';
 import { fonts } from '../../src/theme/typography';
@@ -68,7 +68,7 @@ export default function YouScreen() {
   );
 
   const handleGoPro = useCallback(() => {
-    Alert.alert(strings.settings.proTitle, strings.settings.proBody);
+    void presentPaywall();
   }, []);
 
   return (

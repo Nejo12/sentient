@@ -17,6 +17,11 @@ jest.mock('../src/services/rewriteApi', () => ({
   fetchRewrites: jest.fn(),
 }));
 
+jest.mock('../src/services/entitlements', () => ({
+  canRewrite: jest.fn().mockResolvedValue(true),
+  incrementRewriteCount: jest.fn().mockResolvedValue(undefined),
+}));
+
 const { router } = jest.requireMock('expo-router') as {
   router: { push: jest.Mock };
 };

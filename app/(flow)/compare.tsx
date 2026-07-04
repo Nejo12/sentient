@@ -9,6 +9,10 @@ import { Pill } from '../../src/components/Pill';
 import { ResultCard } from '../../src/components/ResultCard';
 import { strings } from '../../src/constants/strings';
 import { UNDERSTANDING_OPTIONS } from '../../src/constants/understanding';
+import {
+  canRewrite,
+  incrementRewriteCount,
+} from '../../src/services/entitlements';
 import { fetchRewrites } from '../../src/services/rewriteApi';
 import { useSessionStore } from '../../src/store/sessionStore';
 import { colors, radii, spacing } from '../../src/theme/tokens';
@@ -69,6 +73,12 @@ export default function CompareScreen() {
     setError(null);
     setLoading(true);
 
+    if (!(await canRewrite())) {
+      setError(`${strings.pro.limitReached} ${strings.pro.nudge}`);
+      setLoading(false);
+      return;
+    }
+
     const response = await fetchRewrites({
       capturedMessage,
       roughDraft: roughDraft.trim() ? roughDraft : null,
@@ -83,6 +93,7 @@ export default function CompareScreen() {
       return;
     }
 
+    await incrementRewriteCount();
     setResults(response.options, response.perspective ?? null);
     setLoading(false);
   };

@@ -14,6 +14,11 @@ jest.mock('../src/services/rewriteApi', () => ({
   fetchRewrites: jest.fn(),
 }));
 
+jest.mock('../src/services/entitlements', () => ({
+  canRewrite: jest.fn().mockResolvedValue(true),
+  incrementRewriteCount: jest.fn().mockResolvedValue(undefined),
+}));
+
 jest.mock('expo-linking', () => ({
   addEventListener: jest.fn(),
   getInitialURL: jest.fn(),

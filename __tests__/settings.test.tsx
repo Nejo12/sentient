@@ -3,15 +3,19 @@ jest.mock('@react-native-async-storage/async-storage', () =>
 );
 
 import { fireEvent, render, waitFor } from '@testing-library/react-native';
-import { Alert } from 'react-native';
 
 import YouScreen from '../app/(tabs)/you';
 import { strings } from '../src/constants/strings';
+import { presentPaywall } from '../src/services/entitlements';
 import { useSettingsStore } from '../src/store/settingsStore';
 
 jest.mock('../src/services/settingsService', () => ({
   fetchRemoteSettings: jest.fn().mockResolvedValue(null),
   syncSettingsToRemote: jest.fn().mockResolvedValue(undefined),
+}));
+
+jest.mock('../src/services/entitlements', () => ({
+  presentPaywall: jest.fn(),
 }));
 
 describe('settings screen', () => {
@@ -64,8 +68,7 @@ describe('settings screen', () => {
     });
   });
 
-  it('shows placeholder alert for Go Pro', async () => {
-    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+  it('calls presentPaywall for Go Pro', async () => {
     const { getByText } = render(<YouScreen />);
 
     await waitFor(() => {
@@ -74,9 +77,6 @@ describe('settings screen', () => {
 
     fireEvent.press(getByText(strings.settings.proCta));
 
-    expect(alertSpy).toHaveBeenCalledWith(
-      strings.settings.proTitle,
-      strings.settings.proBody,
-    );
+    expect(presentPaywall).toHaveBeenCalled();
   });
 });

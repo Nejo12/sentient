@@ -43,6 +43,8 @@ export const strings = {
     body: 'A clearer reply is two taps away. First, two quick permissions so Sentient can reach your chats.',
     shareSheetTitle: 'Add to your Share sheet',
     shareSheetSubtitle: 'Share any message straight to Sentient',
+    overlayTitle: 'Draw over other apps',
+    overlaySubtitle: 'Open Sentient from any chat with the bubble',
     keyboardTitle: 'Turn on the keyboard',
     keyboardSubtitle: 'Optional — improve as you type',
     keyboardComingSoon: 'Coming soon',
@@ -75,6 +77,11 @@ export const strings = {
   errors: {
     moderation: 'Something here needs another look.',
     network: "Couldn't reach Sentient — try again.",
+  },
+
+  pro: {
+    limitReached: "You've used your 5 rewrites for today.",
+    nudge: 'Go Pro for unlimited rewrites.',
   },
 
   history: {
