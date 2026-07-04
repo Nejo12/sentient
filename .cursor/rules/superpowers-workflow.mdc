@@ -1,0 +1,30 @@
+---
+description: Superpowers implementation workflow for Sentient
+alwaysApply: true
+---
+
+# Superpowers Workflow
+
+## Before coding
+
+1. Read `docs/superpowers/specs/2026-07-04-sentient-design.md`
+2. Follow `docs/superpowers/plans/2026-07-04-sentient-mvp.md` task-by-task
+3. Use **subagent-driven-development** or **executing-plans** skills when executing the plan
+
+## TDD
+
+- Write failing test → run (fail) → implement → run (pass) → commit
+- Do not skip tests for business logic (rewrite parsing, entitlements, state reducers)
+
+## Commits
+
+- Only commit when the user asks, or at plan "Step 5: Commit" checkpoints during execution
+- One logical change per commit; conventional messages (`feat:`, `fix:`, `chore:`)
+
+## Verification before completion
+
+Run from project root: `npm run lint`, `npm run test`, `npm run build` (or Expo equivalent). All must pass.
+
+## Worktrees
+
+For feature isolation, use `.worktrees/` (must be gitignored). See superpowers `using-git-worktrees` skill.

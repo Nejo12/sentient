@@ -1,0 +1,33 @@
+---
+description: Sentient product rules — brand, copy, scope, no improvisation
+alwaysApply: true
+---
+
+# Sentient Project Rules
+
+## Brand
+
+- Product name is **Sentient** in all user-facing copy (not Kindly).
+- Repo: `Nejo12/sentient`. Handoff folder still says Kindly — adapt when building.
+
+## Copy discipline
+
+- en-GB, sentence case, warm second-person voice.
+- No emoji. No exclamation marks (except inside quoted user messages).
+- Never label anything "AI", "Generate", or "Magic".
+- Moderation block copy: *"Something here needs another look."*
+- Reassurance on Send-back: nothing sends automatically.
+
+## v1 scope (do not add without approval)
+
+- Intents: **What can I do?** / **What am I missing?**
+- Understanding chips (do-path only): Calm, Confident, Curious, Compassionate, Firm, Professional
+- Do NOT ship: Softer/Warmer chips, Apologise, Set boundary, Translate, custom keyboard (v1.1)
+
+## Clarification gate
+
+If a requirement is missing from `docs/superpowers/specs/2026-07-04-sentient-design.md`, **ask the user** — do not improvise.
+
+## Spec location
+
+`docs/superpowers/specs/2026-07-04-sentient-design.md`

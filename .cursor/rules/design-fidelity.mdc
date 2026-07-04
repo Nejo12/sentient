@@ -1,0 +1,34 @@
+---
+description: Design token and visual fidelity rules for Sentient UI
+globs: "**/*.{tsx,ts,css}"
+alwaysApply: false
+---
+
+# Design Fidelity
+
+## Source of truth
+
+- Tokens: `docs/handoff/design_handoff_kindly/DESIGN_TOKENS.md`
+- Screens: `docs/handoff/design_handoff_kindly/screens/*.png`
+- Prototype: `docs/handoff/design_handoff_kindly/design/Kindly.dc.html`
+
+## Colors
+
+- Primary/brand: oxblood `#7F3523` only — no stray accent colors.
+- Success: olive `#7C7838` only (toasts, checks).
+- Clay `#9C5A44` for eyebrows; soft peach `#F1E3D6` for tinted surfaces.
+
+## Typography
+
+- DM Sans: all UI (400/500/600/700).
+- DM Serif Display: **only** Sentient wordmark and Send-back reply preview.
+
+## Components
+
+- Buttons: pill shape, 0.12em tracking, min-height 48px.
+- Cards: 12–22px radius, soft shadow, 1px low-contrast border.
+- Pills: 11px labels; accent / success / neutral variants per tokens.
+
+## Motion
+
+- Respect `prefers-reduced-motion`. Entrance fade-rise 360ms; minimal animation otherwise.
