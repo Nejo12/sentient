@@ -56,7 +56,11 @@ export const useSessionStore = create<SessionStore>((set) => ({
     set({ capturedMessage: message, contactName, sourceApp }),
   setRoughDraft: (text) => set({ roughDraft: text }),
   setIntent: (intent) =>
-    set({ intent, showUnderstandingGrid: intent === 'do' }),
+    set({
+      intent,
+      showUnderstandingGrid: intent === 'do',
+      ...(intent === 'missing' ? { understanding: null } : {}),
+    }),
   setUnderstanding: (understanding) => set({ understanding }),
   setResults: (results, perspective) =>
     set({
