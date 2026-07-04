@@ -14,9 +14,27 @@ jest.mock('../src/services/rewriteApi', () => ({
   fetchRewrites: jest.fn(),
 }));
 
+jest.mock('expo-linking', () => ({
+  addEventListener: jest.fn(),
+  getInitialURL: jest.fn(),
+}));
+
+jest.mock('expo-share-intent', () => ({
+  useShareIntentContext: jest.fn(),
+}));
+
 const { router, useLocalSearchParams } = jest.requireMock('expo-router') as {
   router: { push: jest.Mock };
   useLocalSearchParams: jest.Mock;
+};
+
+const { addEventListener, getInitialURL } = jest.requireMock('expo-linking') as {
+  addEventListener: jest.Mock;
+  getInitialURL: jest.Mock;
+};
+
+const { useShareIntentContext } = jest.requireMock('expo-share-intent') as {
+  useShareIntentContext: jest.Mock;
 };
 
 const rewriteOptions: RewriteOption[] = [
@@ -44,6 +62,13 @@ describe('choose screen', () => {
   beforeEach(() => {
     useSessionStore.getState().reset();
     jest.clearAllMocks();
+    getInitialURL.mockResolvedValue(null);
+    addEventListener.mockReturnValue({ remove: jest.fn() });
+    useShareIntentContext.mockReturnValue({
+      hasShareIntent: false,
+      shareIntent: null,
+      resetShareIntent: jest.fn(),
+    });
     useLocalSearchParams.mockReturnValue({
       message: "So you're just cancelling again?",
       name: 'Sam',

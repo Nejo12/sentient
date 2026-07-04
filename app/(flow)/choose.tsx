@@ -1,3 +1,5 @@
+import { useShareIntentContext } from 'expo-share-intent';
+import * as Linking from 'expo-linking';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Sparkles, X } from 'lucide-react-native';
 import { useEffect, useMemo } from 'react';
@@ -17,6 +19,7 @@ import { UnderstandingChip } from '../../src/components/UnderstandingChip';
 import { strings } from '../../src/constants/strings';
 import { UNDERSTANDING_OPTIONS } from '../../src/constants/understanding';
 import { fetchRewrites } from '../../src/services/rewriteApi';
+import { parseShareIntent } from '../../src/services/shareIntent';
 import { useSessionStore } from '../../src/store/sessionStore';
 import { colors, radii, spacing } from '../../src/theme/tokens';
 import { fonts } from '../../src/theme/typography';
@@ -36,20 +39,37 @@ function getSingleParam(param: string | string[] | undefined): string | undefine
 }
 
 export default function ChooseScreen() {
-  const { message, name, app } = useLocalSearchParams<{
+  const { message, text, name, app, sourceApp } = useLocalSearchParams<{
     message?: string | string[];
+    text?: string | string[];
     name?: string | string[];
     app?: string | string[];
+    sourceApp?: string | string[];
   }>();
 
-  const routeContext = useMemo(
-    () => ({
-      message: getSingleParam(message) ?? DEV_DEFAULTS.message,
-      name: getSingleParam(name) ?? DEV_DEFAULTS.name,
-      app: getSingleParam(app) ?? DEV_DEFAULTS.app,
-    }),
-    [app, message, name],
-  );
+  const { hasShareIntent, shareIntent, resetShareIntent } = useShareIntentContext();
+  const fallbackName = getSingleParam(name) ?? DEV_DEFAULTS.name;
+  const fallbackSourceApp = getSingleParam(sourceApp) ?? getSingleParam(app) ?? DEV_DEFAULTS.app;
+
+  const routeContext = useMemo(() => {
+    const parsedIntent = parseShareIntent({
+      params: {
+        message: getSingleParam(message),
+        text: getSingleParam(text),
+        sourceApp: getSingleParam(sourceApp),
+        app: getSingleParam(app),
+      },
+    });
+
+    if (parsedIntent) {
+      return parsedIntent;
+    }
+
+    return {
+      message: DEV_DEFAULTS.message,
+      sourceApp: fallbackSourceApp,
+    };
+  }, [app, fallbackSourceApp, message, sourceApp, text]);
 
   const {
     capturedMessage,
@@ -70,8 +90,71 @@ export default function ChooseScreen() {
   } = useSessionStore();
 
   useEffect(() => {
-    setCapturedContext(routeContext.message, routeContext.name, routeContext.app);
-  }, [routeContext.app, routeContext.message, routeContext.name, setCapturedContext]);
+    setCapturedContext(routeContext.message, fallbackName, routeContext.sourceApp);
+  }, [fallbackName, routeContext.message, routeContext.sourceApp, setCapturedContext]);
+
+  useEffect(() => {
+    const applyParsedIntent = (parsedIntent: ReturnType<typeof parseShareIntent>) => {
+      if (!parsedIntent) {
+        return;
+      }
+
+      setCapturedContext(
+        parsedIntent.message,
+        contactName || fallbackName,
+        parsedIntent.sourceApp || fallbackSourceApp,
+      );
+    };
+
+    void Linking.getInitialURL().then((url) => {
+      applyParsedIntent(parseShareIntent({ url }));
+    });
+
+    const subscription = Linking.addEventListener('url', (event) => {
+      applyParsedIntent(parseShareIntent({ url: event.url }));
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [contactName, fallbackName, fallbackSourceApp, setCapturedContext]);
+
+  useEffect(() => {
+    if (!hasShareIntent || !shareIntent) {
+      return;
+    }
+
+    const nativeShareIntent = shareIntent as {
+      text?: string | null;
+      meta?: { title?: string | null } | null;
+    };
+
+    const parsedIntent = parseShareIntent({
+      params: {
+        message: nativeShareIntent.text ?? undefined,
+        sourceApp: nativeShareIntent.meta?.title ?? undefined,
+      },
+    });
+
+    if (!parsedIntent) {
+      return;
+    }
+
+    setCapturedContext(
+      parsedIntent.message,
+      contactName || fallbackName,
+      parsedIntent.sourceApp || fallbackSourceApp,
+    );
+    resetShareIntent();
+  }, [
+    contactName,
+    fallbackName,
+    fallbackSourceApp,
+    hasShareIntent,
+    resetShareIntent,
+    setCapturedContext,
+    shareIntent,
+  ]);
 
   const submit = async (nextIntent: Intent, nextUnderstanding?: Understanding) => {
     setError(null);
@@ -124,7 +207,7 @@ export default function ChooseScreen() {
         </View>
 
         <View style={styles.block}>
-          <Text style={styles.replyingTo}>{strings.choose.replyingTo(contactName || DEV_DEFAULTS.name)}</Text>
+          <Text style={styles.replyingTo}>{strings.choose.replyingTo(contactName || fallbackName)}</Text>
           <View style={styles.quoteCard}>
             <Text style={styles.quote}>{capturedMessage || DEV_DEFAULTS.message}</Text>
           </View>

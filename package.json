@@ -24,6 +24,7 @@
     "expo-haptics": "~15.0.2",
     "expo-linking": "~57.0.1",
     "expo-router": "~57.0.3",
+    "expo-share-intent": "^8.0.0",
     "expo-splash-screen": "~57.0.2",
     "expo-status-bar": "~57.0.0",
     "expo-symbols": "~57.0.0",
