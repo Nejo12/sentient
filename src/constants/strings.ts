@@ -52,6 +52,20 @@ export const strings = {
     signIn: 'Sign in to sync your rewrites',
   },
 
+  auth: {
+    title: 'Sign in',
+    emailLabel: 'Email',
+    passwordLabel: 'Password',
+    signInTab: 'Sign in',
+    signUpTab: 'Create account',
+    signInButton: 'Sign in',
+    signUpButton: 'Create account',
+    configError:
+      'Sentient is not connected yet. Add your Supabase URL and key to .env and restart the app.',
+    signInError: "Couldn't sign you in — check your email and password.",
+    signUpError: "Couldn't create your account — try a different email or password.",
+  },
+
   capture: {
     quickActionDo: 'What can I do?',
     quickActionMissing: 'What am I missing?',
