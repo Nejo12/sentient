@@ -19,7 +19,9 @@ import { Pill } from '../../src/components/Pill';
 import { Toast } from '../../src/components/Toast';
 import { strings } from '../../src/constants/strings';
 import { UNDERSTANDING_OPTIONS } from '../../src/constants/understanding';
+import { saveRewrite } from '../../src/services/historyService';
 import { useSessionStore } from '../../src/store/sessionStore';
+import { useSettingsStore } from '../../src/store/settingsStore';
 import { colors, radii, spacing } from '../../src/theme/tokens';
 import { fonts } from '../../src/theme/typography';
 import { copyToClipboard } from '../../src/utils/clipboard';
@@ -28,7 +30,15 @@ const TOAST_TIMEOUT_MS = 1300;
 const WHATSAPP_URL = 'whatsapp://';
 
 export default function SendBackScreen() {
-  const { chosenReply, sourceApp, understanding, intent, setChosenReply } = useSessionStore();
+  const {
+    chosenReply,
+    sourceApp,
+    contactName,
+    understanding,
+    intent,
+    setChosenReply,
+  } = useSessionStore();
+  const saveHistory = useSettingsStore((state) => state.saveHistory);
   const [draft, setDraft] = useState(chosenReply);
   const [isEditing, setIsEditing] = useState(false);
   const [showToast, setShowToast] = useState(false);
@@ -64,9 +74,24 @@ export default function SendBackScreen() {
     }, TOAST_TIMEOUT_MS);
   };
 
+  const persistRewrite = async (text: string) => {
+    if (!saveHistory || !intent) {
+      return;
+    }
+
+    await saveRewrite({
+      contactName,
+      sourceApp,
+      intent,
+      understanding,
+      fullText: text,
+    });
+  };
+
   const handleCopy = async () => {
     await copyToClipboard(draft);
     setChosenReply(draft);
+    await persistRewrite(draft);
     showCopiedToast();
   };
 

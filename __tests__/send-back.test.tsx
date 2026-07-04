@@ -4,7 +4,9 @@ import { Alert, Linking } from 'react-native';
 import SendBackScreen from '../app/(flow)/send-back';
 import { strings } from '../src/constants/strings';
 import { useSessionStore } from '../src/store/sessionStore';
+import { useSettingsStore } from '../src/store/settingsStore';
 import { copyToClipboard } from '../src/utils/clipboard';
+import { saveRewrite } from '../src/services/historyService';
 
 jest.mock('expo-router', () => ({
   router: {
@@ -16,6 +18,10 @@ jest.mock('../src/utils/clipboard', () => ({
   copyToClipboard: jest.fn().mockResolvedValue(undefined),
 }));
 
+jest.mock('../src/services/historyService', () => ({
+  saveRewrite: jest.fn().mockResolvedValue(undefined),
+}));
+
 const { router } = jest.requireMock('expo-router') as {
   router: { back: jest.Mock };
 };
@@ -23,6 +29,7 @@ const { router } = jest.requireMock('expo-router') as {
 describe('send-back screen', () => {
   beforeEach(() => {
     useSessionStore.getState().reset();
+    useSettingsStore.setState({ saveHistory: true });
     jest.clearAllMocks();
     useSessionStore.setState({
       intent: 'do',
@@ -45,6 +52,16 @@ describe('send-back screen', () => {
         'I hear you. I want to make this better.',
       );
     });
+
+    expect(saveRewrite).toHaveBeenCalledWith(
+      expect.objectContaining({
+        contactName: '',
+        sourceApp: 'WhatsApp',
+        intent: 'do',
+        understanding: 'calm',
+        fullText: 'I hear you. I want to make this better.',
+      }),
+    );
 
     expect(openURLSpy).toHaveBeenCalledWith('whatsapp://');
     expect(alertSpy).not.toHaveBeenCalled();
@@ -95,6 +112,19 @@ describe('send-back screen', () => {
     expect(queryByDisplayValue('I hear you. I want to make this better.')).toBeNull();
     expect(getByText('Edited response')).toBeTruthy();
     expect(useSessionStore.getState().chosenReply).toBe('Edited response');
+  });
+
+  it('skips history save when saveHistory is disabled', async () => {
+    useSettingsStore.setState({ saveHistory: false });
+    const { getByText } = render(<SendBackScreen />);
+
+    fireEvent.press(getByText(strings.compare.copy));
+
+    await waitFor(() => {
+      expect(copyToClipboard).toHaveBeenCalled();
+    });
+
+    expect(saveRewrite).not.toHaveBeenCalled();
   });
 
   it('goes back to compare from ghost action', () => {
