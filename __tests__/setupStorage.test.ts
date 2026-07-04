@@ -6,9 +6,12 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import {
   SETUP_COMPLETE_KEY,
+  SETUP_OVERLAY_DONE_KEY,
   SETUP_SHARE_DONE_KEY,
+  isOverlaySetupDone,
   isSetupComplete,
   isShareSetupDone,
+  setOverlaySetupDone,
   setSetupComplete,
   setShareSetupDone,
 } from '../src/services/setupStorage';
@@ -33,5 +36,12 @@ describe('setupStorage', () => {
     await setShareSetupDone();
     await expect(isShareSetupDone()).resolves.toBe(true);
     await expect(AsyncStorage.getItem(SETUP_SHARE_DONE_KEY)).resolves.toBe('true');
+  });
+
+  it('persists overlay setup done state', async () => {
+    await expect(isOverlaySetupDone()).resolves.toBe(false);
+    await setOverlaySetupDone();
+    await expect(isOverlaySetupDone()).resolves.toBe(true);
+    await expect(AsyncStorage.getItem(SETUP_OVERLAY_DONE_KEY)).resolves.toBe('true');
   });
 });

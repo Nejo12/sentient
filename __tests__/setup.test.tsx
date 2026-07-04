@@ -1,12 +1,18 @@
 import { fireEvent, render, waitFor } from '@testing-library/react-native';
-import { Linking } from 'react-native';
+import { Linking, Platform } from 'react-native';
 
 import SetupScreen from '../app/setup';
 import {
+  isOverlaySetupDone,
   isShareSetupDone,
+  setOverlaySetupDone,
   setSetupComplete,
   setShareSetupDone,
 } from '../src/services/setupStorage';
+import {
+  isOverlayPermissionGranted,
+  requestOverlayPermission,
+} from '../src/services/overlayPermission';
 
 jest.mock('expo-router', () => ({
   router: { replace: jest.fn(), push: jest.fn() },
@@ -14,8 +20,15 @@ jest.mock('expo-router', () => ({
 
 jest.mock('../src/services/setupStorage', () => ({
   isShareSetupDone: jest.fn(),
+  isOverlaySetupDone: jest.fn(),
   setSetupComplete: jest.fn(),
   setShareSetupDone: jest.fn(),
+  setOverlaySetupDone: jest.fn(),
+}));
+
+jest.mock('../src/services/overlayPermission', () => ({
+  isOverlayPermissionGranted: jest.fn(),
+  requestOverlayPermission: jest.fn(),
 }));
 
 const { router } = jest.requireMock('expo-router') as {
@@ -23,9 +36,16 @@ const { router } = jest.requireMock('expo-router') as {
 };
 
 describe('setup screen', () => {
+  const originalPlatform = Platform.OS;
+
   beforeEach(() => {
     jest.clearAllMocks();
+    Platform.OS = originalPlatform;
     (isShareSetupDone as jest.Mock).mockResolvedValue(false);
+    (isOverlaySetupDone as jest.Mock).mockResolvedValue(false);
+    (isOverlayPermissionGranted as jest.Mock).mockResolvedValue(false);
+    (requestOverlayPermission as jest.Mock).mockResolvedValue(undefined);
+    (setOverlaySetupDone as jest.Mock).mockResolvedValue(undefined);
     (setSetupComplete as jest.Mock).mockResolvedValue(undefined);
     (setShareSetupDone as jest.Mock).mockResolvedValue(undefined);
     jest.spyOn(Linking, 'openSettings').mockResolvedValue(undefined);
@@ -79,5 +99,32 @@ describe('setup screen', () => {
     fireEvent.press(getByText('Sign in to sync your rewrites'));
 
     expect(router.push).toHaveBeenCalledWith('/auth/sign-in');
+  });
+
+  it('shows Android overlay permission row and opens overlay settings', async () => {
+    Platform.OS = 'android';
+    const { getByText, getByTestId } = render(<SetupScreen />);
+
+    expect(getByText('Draw over other apps')).toBeTruthy();
+    fireEvent.press(getByText('Draw over other apps'));
+
+    await waitFor(() => {
+      expect(requestOverlayPermission).toHaveBeenCalled();
+    });
+
+    (isOverlayPermissionGranted as jest.Mock).mockResolvedValue(true);
+    fireEvent.press(getByText('Draw over other apps'));
+
+    await waitFor(() => {
+      expect(setOverlaySetupDone).toHaveBeenCalled();
+      expect(getByTestId('overlay-done-badge')).toBeTruthy();
+    });
+  });
+
+  it('hides Android overlay permission row on iOS', async () => {
+    Platform.OS = 'ios';
+    const { queryByText } = render(<SetupScreen />);
+
+    expect(queryByText('Draw over other apps')).toBeNull();
   });
 });

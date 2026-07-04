@@ -1,8 +1,10 @@
 import { router } from 'expo-router';
-import { Check, Lock, Share } from 'lucide-react-native';
+import { Check, Layers, Lock, Share } from 'lucide-react-native';
 import { useCallback, useEffect, useState } from 'react';
 import {
+  AppState,
   Linking,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -16,7 +18,13 @@ import { Button } from '../src/components/Button';
 import { Card } from '../src/components/Card';
 import { strings } from '../src/constants/strings';
 import {
+  isOverlayPermissionGranted,
+  requestOverlayPermission,
+} from '../src/services/overlayPermission';
+import {
+  isOverlaySetupDone,
   isShareSetupDone,
+  setOverlaySetupDone,
   setSetupComplete,
   setShareSetupDone,
 } from '../src/services/setupStorage';
@@ -32,18 +40,57 @@ const DEV_CHOOSE_PARAMS = {
   },
 };
 
+async function loadOverlayDoneState(): Promise<boolean> {
+  const [storedDone, granted] = await Promise.all([
+    isOverlaySetupDone(),
+    isOverlayPermissionGranted(),
+  ]);
+  const done = storedDone || granted;
+  if (done && !storedDone) {
+    await setOverlaySetupDone();
+  }
+  return done;
+}
+
 export default function SetupScreen() {
   const [shareDone, setShareDone] = useState(false);
+  const [overlayDone, setOverlayDone] = useState(false);
+
+  const refreshOverlayDone = useCallback(async () => {
+    setOverlayDone(await loadOverlayDoneState());
+  }, []);
 
   useEffect(() => {
     void isShareSetupDone().then(setShareDone);
+    if (Platform.OS === 'android') {
+      void loadOverlayDoneState().then(setOverlayDone);
+    }
   }, []);
+
+  useEffect(() => {
+    if (Platform.OS !== 'android') {
+      return;
+    }
+
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'active') {
+        void refreshOverlayDone();
+      }
+    });
+
+    return () => subscription.remove();
+  }, [refreshOverlayDone]);
 
   const handleShareRowPress = useCallback(async () => {
     await Linking.openSettings();
     await setShareSetupDone();
     setShareDone(true);
   }, []);
+
+  const handleOverlayRowPress = useCallback(async () => {
+    await requestOverlayPermission();
+    await refreshOverlayDone();
+  }, [refreshOverlayDone]);
 
   const handleContinue = useCallback(async () => {
     await setSetupComplete();
@@ -89,6 +136,32 @@ export default function SetupScreen() {
               </View>
             ) : null}
           </Pressable>
+          {Platform.OS === 'android' ? (
+            <>
+              <View style={styles.rowDivider} />
+              <Pressable
+                accessibilityRole="button"
+                onPress={handleOverlayRowPress}
+                style={({ pressed }) => [
+                  styles.permissionRow,
+                  pressed && styles.permissionRowPressed,
+                ]}
+              >
+                <View style={styles.iconTile}>
+                  <Layers color={colors.oxblood} size={18} strokeWidth={2} />
+                </View>
+                <View style={styles.rowCopy}>
+                  <Text style={styles.rowTitle}>{strings.setup.overlayTitle}</Text>
+                  <Text style={styles.rowSubtitle}>{strings.setup.overlaySubtitle}</Text>
+                </View>
+                {overlayDone ? (
+                  <View style={styles.doneBadge} testID="overlay-done-badge">
+                    <Check color={colors.oxbloodFg} size={14} strokeWidth={2.5} />
+                  </View>
+                ) : null}
+              </Pressable>
+            </>
+          ) : null}
         </Card>
 
         <View style={styles.reassuranceRow}>
@@ -159,6 +232,11 @@ const styles = StyleSheet.create({
   },
   permissionRowPressed: {
     backgroundColor: colors.paperSoft,
+  },
+  rowDivider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: colors.border,
+    marginLeft: 58,
   },
   iconTile: {
     width: 38,
