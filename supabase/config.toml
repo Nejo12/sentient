@@ -1,0 +1,12 @@
+project_id = "sentient"
+
+[api]
+enabled = true
+port = 54321
+
+[db]
+port = 54322
+major_version = 15
+
+[functions.rewrite]
+verify_jwt = false
