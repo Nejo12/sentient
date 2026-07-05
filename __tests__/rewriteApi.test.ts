@@ -8,6 +8,7 @@ describe('rewriteApi', () => {
 
   beforeEach(() => {
     process.env.EXPO_PUBLIC_SUPABASE_URL = SUPABASE_URL;
+    process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY = 'test-anon-key';
   });
 
   afterEach(() => {
@@ -41,7 +42,11 @@ describe('rewriteApi', () => {
       `${SUPABASE_URL}/functions/v1/rewrite`,
       expect.objectContaining({
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: expect.objectContaining({
+          'Content-Type': 'application/json',
+          apikey: 'test-anon-key',
+          Authorization: 'Bearer test-anon-key',
+        }),
         body: JSON.stringify({
           capturedMessage: 'test',
           roughDraft: null,

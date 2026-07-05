@@ -24,11 +24,22 @@ export type FetchRewritesFailure = {
 export type FetchRewritesResult = FetchRewritesSuccess | FetchRewritesFailure;
 
 function rewriteUrl(): string {
-  const baseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
+  const baseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL?.replace(/\/$/, '');
   if (!baseUrl) {
     throw new Error('EXPO_PUBLIC_SUPABASE_URL is not configured');
   }
   return `${baseUrl}/functions/v1/rewrite`;
+}
+
+function authHeaders(): Record<string, string> {
+  const anonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+  if (!anonKey) {
+    return {};
+  }
+  return {
+    apikey: anonKey,
+    Authorization: `Bearer ${anonKey}`,
+  };
 }
 
 export async function fetchRewrites(
@@ -37,7 +48,10 @@ export async function fetchRewrites(
   try {
     const response = await fetch(rewriteUrl(), {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        ...authHeaders(),
+      },
       body: JSON.stringify({
         capturedMessage: params.capturedMessage,
         roughDraft: params.roughDraft ?? null,

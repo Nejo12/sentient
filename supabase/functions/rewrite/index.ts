@@ -173,51 +173,58 @@ serve(async (req) => {
     return jsonResponse({ error: 'Server configuration error' }, 500);
   }
 
-  const openai = new OpenAI({ apiKey });
-
-  const moderationInput = [capturedMessage, roughDraft ?? '']
-    .filter(Boolean)
-    .join('\n');
-
-  const mod = await openai.moderations.create({ input: moderationInput });
-  if (mod.results[0]?.flagged) {
-    return jsonResponse({ blocked: true, message: BLOCKED }, 422);
-  }
-
-  const systemPrompt = buildSystemPrompt(intent, understanding);
-  const userContent = [
-    `Message from ${contactName ?? 'contact'}:`,
-    capturedMessage,
-    '',
-    'Draft:',
-    roughDraft?.trim() ? roughDraft : '(none)',
-  ].join('\n');
-
-  const completion = await openai.chat.completions.create({
-    model: 'gpt-4o-mini',
-    response_format: { type: 'json_object' },
-    messages: [
-      { role: 'system', content: systemPrompt },
-      { role: 'user', content: userContent },
-    ],
-  });
-
-  const content = completion.choices[0]?.message?.content;
-  if (!content) {
-    return jsonResponse({ error: 'Empty model response' }, 502);
-  }
-
-  let parsed: unknown;
   try {
-    parsed = JSON.parse(content);
-  } catch {
-    return jsonResponse({ error: 'Invalid model response' }, 502);
-  }
+    const openai = new OpenAI({ apiKey });
 
-  const response = parseRewriteResponse(parsed, intent);
-  if (!response) {
-    return jsonResponse({ error: 'Model returned invalid rewrite options' }, 502);
-  }
+    const moderationInput = [capturedMessage, roughDraft ?? '']
+      .filter(Boolean)
+      .join('\n');
 
-  return jsonResponse(response);
+    const mod = await openai.moderations.create({ input: moderationInput });
+    if (mod.results[0]?.flagged) {
+      return jsonResponse({ blocked: true, message: BLOCKED }, 422);
+    }
+
+    const systemPrompt = buildSystemPrompt(intent, understanding);
+    const userContent = [
+      `Message from ${contactName ?? 'contact'}:`,
+      capturedMessage,
+      '',
+      'Draft:',
+      roughDraft?.trim() ? roughDraft : '(none)',
+    ].join('\n');
+
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      response_format: { type: 'json_object' },
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userContent },
+      ],
+    });
+
+    const content = completion.choices[0]?.message?.content;
+    if (!content) {
+      return jsonResponse({ error: 'Empty model response' }, 502);
+    }
+
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(content);
+    } catch {
+      return jsonResponse({ error: 'Invalid model response' }, 502);
+    }
+
+    const response = parseRewriteResponse(parsed, intent);
+    if (!response) {
+      return jsonResponse({ error: 'Model returned invalid rewrite options' }, 502);
+    }
+
+    return jsonResponse(response);
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : 'Rewrite request failed';
+    console.error('rewrite function error:', message);
+    return jsonResponse({ error: message }, 500);
+  }
 });

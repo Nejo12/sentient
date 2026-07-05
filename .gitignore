@@ -44,3 +44,6 @@ coverage/
 # Misc
 *.log
 *.tsbuildinfo
+
+# Supabase CLI
+supabase/.temp/

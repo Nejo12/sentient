@@ -97,6 +97,13 @@ export const strings = {
     },
   },
 
+  home: {
+    eyebrow: 'Sentient',
+    title: 'Say it well, before you send',
+    body: 'Share a message from any chat, pick how you want to be understood, and choose the reply that sounds like you.',
+    cta: 'Improve a message',
+  },
+
   settings: {
     title: 'Settings',
     defaults: 'Defaults',
