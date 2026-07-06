@@ -8,9 +8,11 @@
     "scheme": "sentient",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.gee1216.sentient"
     },
     "android": {
+      "package": "com.gee1216.sentient",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -32,6 +34,7 @@
       [
         "expo-share-intent",
         {
+          "iosAppGroupIdentifier": "group.com.gee1216.sentient",
           "iosActivationRules": {
             "NSExtensionActivationSupportsText": true,
             "NSExtensionActivationSupportsWebURLWithMaxCount": 1
@@ -49,6 +52,12 @@
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "d2686b00-588a-4e9b-9718-18ca6a773bac"
+      }
     }
   }
 }
