@@ -8,6 +8,16 @@ jest.mock('expo-router', () => ({
     const { Text } = require('react-native');
     return <Text testID={`redirect-${href}`}>{href}</Text>;
   },
+  router: {
+    replace: jest.fn(),
+  },
+}));
+
+jest.mock('expo-share-intent', () => ({
+  useShareIntentContext: () => ({
+    hasShareIntent: false,
+    isReady: true,
+  }),
 }));
 
 jest.mock('../src/services/setupStorage', () => ({

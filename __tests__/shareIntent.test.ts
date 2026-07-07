@@ -1,4 +1,4 @@
-import { parseShareIntent } from '../src/services/shareIntent';
+import { parseNativeShareIntent, parseShareIntent } from '../src/services/shareIntent';
 
 describe('share intent parser', () => {
   it('parses message and source app from a sentient deep link', () => {
@@ -35,5 +35,17 @@ describe('share intent parser', () => {
     });
 
     expect(parsed).toBeNull();
+  });
+
+  it('parses native share intent text and source title', () => {
+    const parsed = parseNativeShareIntent({
+      text: 'Can we talk tonight?',
+      meta: { title: 'Messages' },
+    });
+
+    expect(parsed).toEqual({
+      message: 'Can we talk tonight?',
+      sourceApp: 'Messages',
+    });
   });
 });

@@ -22,6 +22,7 @@ jest.mock('../src/services/entitlements', () => ({
 jest.mock('expo-linking', () => ({
   addEventListener: jest.fn(),
   getInitialURL: jest.fn(),
+  useLinkingURL: jest.fn(),
 }));
 
 jest.mock('expo-share-intent', () => ({
@@ -33,9 +34,10 @@ const { router, useLocalSearchParams } = jest.requireMock('expo-router') as {
   useLocalSearchParams: jest.Mock;
 };
 
-const { addEventListener, getInitialURL } = jest.requireMock('expo-linking') as {
+const { addEventListener, getInitialURL, useLinkingURL } = jest.requireMock('expo-linking') as {
   addEventListener: jest.Mock;
   getInitialURL: jest.Mock;
+  useLinkingURL: jest.Mock;
 };
 
 const { useShareIntentContext } = jest.requireMock('expo-share-intent') as {
@@ -68,11 +70,13 @@ describe('choose screen', () => {
     useSessionStore.getState().reset();
     jest.clearAllMocks();
     getInitialURL.mockResolvedValue(null);
+    useLinkingURL.mockReturnValue(null);
     addEventListener.mockReturnValue({ remove: jest.fn() });
     useShareIntentContext.mockReturnValue({
       hasShareIntent: false,
       shareIntent: null,
       resetShareIntent: jest.fn(),
+      isReady: true,
     });
     useLocalSearchParams.mockReturnValue({
       message: "So you're just cancelling again?",
@@ -128,5 +132,58 @@ describe('choose screen', () => {
     expect(router.push).toHaveBeenCalledWith('/(flow)/compare');
     expect(useSessionStore.getState().intent).toBe('do');
     expect(useSessionStore.getState().understanding).toBe('calm');
+  });
+
+  it('shows shared text from the native share intent', async () => {
+    useShareIntentContext.mockReturnValue({
+      hasShareIntent: true,
+      shareIntent: {
+        text: 'Are you free tomorrow?',
+        meta: { title: 'Messages' },
+      },
+      resetShareIntent: jest.fn(),
+      isReady: true,
+    });
+
+    const { getByText } = render(<ChooseScreen />);
+
+    await waitFor(() => {
+      expect(getByText('Are you free tomorrow?')).toBeTruthy();
+    });
+  });
+
+  it('keeps showing the captured message after resetShareIntent clears the native context', async () => {
+    // No route query params: this is how the screen is actually reached from
+    // a native share (router.replace('/(flow)/choose') with no query args).
+    useLocalSearchParams.mockReturnValue({});
+
+    // useLinkingURL keeps returning the share-extension URL even after the
+    // payload is consumed, exactly like real Expo Linking behaviour.
+    useLinkingURL.mockReturnValue('sentient://dataUrl=sentientShareKey?nonce=abc#text');
+
+    // Mirrors the real expo-share-intent hook: resetShareIntent() clears
+    // hasShareIntent/shareIntent back to empty, and is a new function
+    // reference on every render (see node_modules/expo-share-intent/build/useShareIntent.js).
+    let mockState: { hasShareIntent: boolean; shareIntent: unknown } = {
+      hasShareIntent: true,
+      shareIntent: { text: 'Are you free tomorrow?', meta: { title: 'Messages' } },
+    };
+    useShareIntentContext.mockImplementation(() => ({
+      ...mockState,
+      isReady: true,
+      resetShareIntent: () => {
+        mockState = { hasShareIntent: false, shareIntent: null };
+      },
+    }));
+
+    const { getByText, rerender } = render(<ChooseScreen />);
+
+    await waitFor(() => {
+      expect(getByText('Are you free tomorrow?')).toBeTruthy();
+    });
+
+    rerender(<ChooseScreen />);
+
+    expect(getByText('Are you free tomorrow?')).toBeTruthy();
   });
 });

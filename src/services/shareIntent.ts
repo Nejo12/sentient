@@ -5,6 +5,12 @@ export interface ParsedShareIntent {
   sourceApp: string;
 }
 
+interface NativeShareIntentShape {
+  text?: string | null;
+  webUrl?: string | null;
+  meta?: { title?: string | null } | null;
+}
+
 interface ParseShareIntentInput {
   url?: string | null;
   params?: Record<string, ShareIntentParamValue>;
@@ -12,6 +18,28 @@ interface ParseShareIntentInput {
 
 const MESSAGE_KEYS = ['message', 'text', 'sharedText', 'content', 'url'] as const;
 const SOURCE_APP_KEYS = ['sourceApp', 'app', 'source', 'sourceApplication'] as const;
+
+export function isShareExtensionUrl(url: string | null | undefined): boolean {
+  return Boolean(url?.includes('dataUrl=') && url.includes('ShareKey'));
+}
+
+export function parseNativeShareIntent(
+  shareIntent: NativeShareIntentShape | null | undefined,
+): ParsedShareIntent | null {
+  if (!shareIntent) {
+    return null;
+  }
+
+  const message = shareIntent.text?.trim() || shareIntent.webUrl?.trim();
+  if (!message) {
+    return null;
+  }
+
+  return {
+    message,
+    sourceApp: shareIntent.meta?.title?.trim() ?? '',
+  };
+}
 
 function getSingleParamValue(value: ShareIntentParamValue): string | undefined {
   if (Array.isArray(value)) {

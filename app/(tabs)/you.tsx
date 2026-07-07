@@ -15,7 +15,7 @@ import { Card } from '../../src/components/Card';
 import { Toggle } from '../../src/components/Toggle';
 import { strings } from '../../src/constants/strings';
 import { UNDERSTANDING_OPTIONS } from '../../src/constants/understanding';
-import { presentPaywall } from '../../src/services/entitlements';
+import { isPro, presentPaywall, refreshProStatus } from '../../src/services/entitlements';
 import { useSettingsStore } from '../../src/store/settingsStore';
 import { colors, radii, shadows, spacing } from '../../src/theme/tokens';
 import { fonts } from '../../src/theme/typography';
@@ -47,10 +47,15 @@ export default function YouScreen() {
   } = useSettingsStore();
 
   const [pickerVisible, setPickerVisible] = useState(false);
+  const [isProUser, setIsProUser] = useState(isPro());
 
   useEffect(() => {
     void hydrate();
   }, [hydrate]);
+
+  useEffect(() => {
+    void refreshProStatus().then(() => setIsProUser(isPro()));
+  }, []);
 
   const selectedLabel = useMemo(
     () =>
@@ -68,7 +73,7 @@ export default function YouScreen() {
   );
 
   const handleGoPro = useCallback(() => {
-    void presentPaywall();
+    void presentPaywall().then(() => setIsProUser(isPro()));
   }, []);
 
   return (
@@ -138,17 +143,21 @@ export default function YouScreen() {
               <Sparkles color={colors.oxbloodFg} size={16} strokeWidth={2} />
               <Text style={styles.proTitle}>{strings.settings.proTitle}</Text>
             </View>
-            <Text style={styles.proBody}>{strings.settings.proBody}</Text>
-            <View style={styles.proFooter}>
-              <Pressable
-                accessibilityRole="button"
-                onPress={handleGoPro}
-                style={({ pressed }) => [styles.proButton, pressed && styles.rowPressed]}
-              >
-                <Text style={styles.proButtonLabel}>{strings.settings.proCta}</Text>
-              </Pressable>
-              <Text style={styles.proPrice}>{strings.settings.proPrice}</Text>
-            </View>
+            <Text style={styles.proBody}>
+              {isProUser ? strings.settings.proActiveBody : strings.settings.proBody}
+            </Text>
+            {isProUser ? null : (
+              <View style={styles.proFooter}>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={handleGoPro}
+                  style={({ pressed }) => [styles.proButton, pressed && styles.rowPressed]}
+                >
+                  <Text style={styles.proButtonLabel}>{strings.settings.proCta}</Text>
+                </Pressable>
+                <Text style={styles.proPrice}>{strings.settings.proPrice}</Text>
+              </View>
+            )}
           </View>
         </View>
       </ScrollView>

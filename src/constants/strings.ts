@@ -117,6 +117,7 @@ export const strings = {
     proBody: 'Unlimited rewrites, every way to be understood',
     proCta: 'Go Pro',
     proPrice: '€3.99 / month',
+    proActiveBody: "You're on Sentient Pro. Unlimited rewrites, every way to be understood.",
   },
 
   android: {

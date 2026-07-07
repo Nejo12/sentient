@@ -1,9 +1,11 @@
 import { useShareIntentContext } from 'expo-share-intent';
 import * as Linking from 'expo-linking';
+import { useLinkingURL } from 'expo-linking';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Sparkles, X } from 'lucide-react-native';
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import {
+  ActivityIndicator,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -23,17 +25,18 @@ import {
   incrementRewriteCount,
 } from '../../src/services/entitlements';
 import { fetchRewrites } from '../../src/services/rewriteApi';
-import { parseShareIntent } from '../../src/services/shareIntent';
+import {
+  isShareExtensionUrl,
+  parseNativeShareIntent,
+  parseShareIntent,
+} from '../../src/services/shareIntent';
 import { useSessionStore } from '../../src/store/sessionStore';
 import { colors, radii, spacing } from '../../src/theme/tokens';
 import { fonts } from '../../src/theme/typography';
 import type { Intent, Understanding } from '../../src/types/rewrite';
 
-const DEV_DEFAULTS = {
-  message: "So you're just cancelling again? Cool. Guess I'll figure it out myself.",
-  name: 'Sam',
-  app: 'WhatsApp',
-} as const;
+const FALLBACK_NAME = 'them';
+const FALLBACK_SOURCE_APP = 'your chat app';
 
 function getSingleParam(param: string | string[] | undefined): string | undefined {
   if (Array.isArray(param)) {
@@ -51,12 +54,19 @@ export default function ChooseScreen() {
     sourceApp?: string | string[];
   }>();
 
-  const { hasShareIntent, shareIntent, resetShareIntent } = useShareIntentContext();
-  const fallbackName = getSingleParam(name) ?? DEV_DEFAULTS.name;
-  const fallbackSourceApp = getSingleParam(sourceApp) ?? getSingleParam(app) ?? DEV_DEFAULTS.app;
+  const url = useLinkingURL();
+  const { hasShareIntent, shareIntent, resetShareIntent, isReady } = useShareIntentContext();
+  const fallbackName = getSingleParam(name) ?? FALLBACK_NAME;
+  const fallbackSourceApp =
+    getSingleParam(sourceApp) ?? getSingleParam(app) ?? FALLBACK_SOURCE_APP;
+
+  const nativeContext = useMemo(
+    () => parseNativeShareIntent(shareIntent),
+    [shareIntent],
+  );
 
   const routeContext = useMemo(() => {
-    const parsedIntent = parseShareIntent({
+    return parseShareIntent({
       params: {
         message: getSingleParam(message),
         text: getSingleParam(text),
@@ -64,16 +74,10 @@ export default function ChooseScreen() {
         app: getSingleParam(app),
       },
     });
+  }, [app, message, sourceApp, text]);
 
-    if (parsedIntent) {
-      return parsedIntent;
-    }
-
-    return {
-      message: DEV_DEFAULTS.message,
-      sourceApp: fallbackSourceApp,
-    };
-  }, [app, fallbackSourceApp, message, sourceApp, text]);
+  const resolvedContext = nativeContext ?? routeContext;
+  const isShareOpen = hasShareIntent || isShareExtensionUrl(url);
 
   const {
     capturedMessage,
@@ -93,9 +97,41 @@ export default function ChooseScreen() {
     setError,
   } = useSessionStore();
 
+  // Once a message has been captured, keep showing it even after
+  // resetShareIntent() clears the live native context back to empty.
+  const isLoadingSharedMessage = isShareOpen && !capturedMessage && (!isReady || !resolvedContext);
+
+  // expo-share-intent hands back a new resetShareIntent function identity on
+  // every render (it isn't memoized upstream). Keeping it out of the effect's
+  // dependency array via a ref avoids re-running the capture effect on every
+  // unrelated re-render, which would otherwise re-fire setCapturedContext in
+  // a loop.
+  const resetShareIntentRef = useRef(resetShareIntent);
   useEffect(() => {
-    setCapturedContext(routeContext.message, fallbackName, routeContext.sourceApp);
-  }, [fallbackName, routeContext.message, routeContext.sourceApp, setCapturedContext]);
+    resetShareIntentRef.current = resetShareIntent;
+  });
+
+  useEffect(() => {
+    if (!resolvedContext) {
+      return;
+    }
+
+    setCapturedContext(
+      resolvedContext.message,
+      fallbackName,
+      resolvedContext.sourceApp || fallbackSourceApp,
+    );
+
+    if (hasShareIntent) {
+      resetShareIntentRef.current();
+    }
+  }, [
+    fallbackName,
+    fallbackSourceApp,
+    hasShareIntent,
+    resolvedContext,
+    setCapturedContext,
+  ]);
 
   useEffect(() => {
     const applyParsedIntent = (parsedIntent: ReturnType<typeof parseShareIntent>) => {
@@ -105,13 +141,13 @@ export default function ChooseScreen() {
 
       setCapturedContext(
         parsedIntent.message,
-        contactName || fallbackName,
+        fallbackName,
         parsedIntent.sourceApp || fallbackSourceApp,
       );
     };
 
-    void Linking.getInitialURL().then((url) => {
-      applyParsedIntent(parseShareIntent({ url }));
+    void Linking.getInitialURL().then((initialUrl) => {
+      applyParsedIntent(parseShareIntent({ url: initialUrl }));
     });
 
     const subscription = Linking.addEventListener('url', (event) => {
@@ -121,44 +157,7 @@ export default function ChooseScreen() {
     return () => {
       subscription.remove();
     };
-  }, [contactName, fallbackName, fallbackSourceApp, setCapturedContext]);
-
-  useEffect(() => {
-    if (!hasShareIntent || !shareIntent) {
-      return;
-    }
-
-    const nativeShareIntent = shareIntent as {
-      text?: string | null;
-      meta?: { title?: string | null } | null;
-    };
-
-    const parsedIntent = parseShareIntent({
-      params: {
-        message: nativeShareIntent.text ?? undefined,
-        sourceApp: nativeShareIntent.meta?.title ?? undefined,
-      },
-    });
-
-    if (!parsedIntent) {
-      return;
-    }
-
-    setCapturedContext(
-      parsedIntent.message,
-      contactName || fallbackName,
-      parsedIntent.sourceApp || fallbackSourceApp,
-    );
-    resetShareIntent();
-  }, [
-    contactName,
-    fallbackName,
-    fallbackSourceApp,
-    hasShareIntent,
-    resetShareIntent,
-    setCapturedContext,
-    shareIntent,
-  ]);
+  }, [fallbackName, fallbackSourceApp, setCapturedContext]);
 
   const submit = async (nextIntent: Intent, nextUnderstanding?: Understanding) => {
     setError(null);
@@ -220,7 +219,11 @@ export default function ChooseScreen() {
         <View style={styles.block}>
           <Text style={styles.replyingTo}>{strings.choose.replyingTo(contactName || fallbackName)}</Text>
           <View style={styles.quoteCard}>
-            <Text style={styles.quote}>{capturedMessage || DEV_DEFAULTS.message}</Text>
+            {isLoadingSharedMessage ? (
+              <ActivityIndicator color={colors.clay} />
+            ) : (
+              <Text style={styles.quote}>{capturedMessage}</Text>
+            )}
           </View>
         </View>
 

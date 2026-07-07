@@ -34,13 +34,15 @@
     },
     "plugins": [
       "expo-router",
+      "./plugins/with-ios-share-text-fix",
       [
         "expo-share-intent",
         {
           "iosAppGroupIdentifier": "group.com.gee1216.sentient",
           "iosActivationRules": {
             "NSExtensionActivationSupportsText": true,
-            "NSExtensionActivationSupportsWebURLWithMaxCount": 1
+            "NSExtensionActivationSupportsWebURLWithMaxCount": 1,
+            "NSExtensionActivationSupportsFileWithMaxCount": 1
           }
         }
       ],

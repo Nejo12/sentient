@@ -13,6 +13,7 @@ import { useEffect } from 'react';
 import 'react-native-reanimated';
 
 import { useColorScheme } from '@/components/useColorScheme';
+import { ShareIntentNavigation } from '@/src/components/ShareIntentNavigation';
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -58,7 +59,13 @@ function RootLayoutNav() {
   const colorScheme = useColorScheme();
 
   return (
-    <ShareIntentProvider>
+    <ShareIntentProvider
+      options={{
+        // Keep shared text when switching to the share extension and back.
+        resetOnBackground: false,
+      }}
+    >
+      <ShareIntentNavigation />
       <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
         <Stack>
           <Stack.Screen name="index" options={{ headerShown: false }} />

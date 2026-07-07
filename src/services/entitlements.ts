@@ -6,7 +6,10 @@ import { strings } from '../constants/strings';
 
 export const FREE_DAILY_LIMIT = 5;
 export const REWRITE_COUNT_STORAGE_KEY = 'sentient:daily-rewrites';
-const PRO_ENTITLEMENT_ID = 'pro';
+// Must match the entitlement Identifier in the RevenueCat dashboard exactly
+// (Product catalog > Entitlements) — that field is immutable after creation,
+// so the app matches it here rather than the other way around.
+const PRO_ENTITLEMENT_ID = 'Sentient Pro';
 
 type DailyRewriteRecord = {
   date: string;

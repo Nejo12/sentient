@@ -6,7 +6,7 @@ import { fireEvent, render, waitFor } from '@testing-library/react-native';
 
 import YouScreen from '../app/(tabs)/you';
 import { strings } from '../src/constants/strings';
-import { presentPaywall } from '../src/services/entitlements';
+import { isPro, presentPaywall } from '../src/services/entitlements';
 import { useSettingsStore } from '../src/store/settingsStore';
 
 jest.mock('../src/services/settingsService', () => ({
@@ -15,7 +15,9 @@ jest.mock('../src/services/settingsService', () => ({
 }));
 
 jest.mock('../src/services/entitlements', () => ({
-  presentPaywall: jest.fn(),
+  isPro: jest.fn().mockReturnValue(false),
+  presentPaywall: jest.fn().mockResolvedValue(undefined),
+  refreshProStatus: jest.fn().mockResolvedValue(undefined),
 }));
 
 describe('settings screen', () => {
@@ -78,5 +80,17 @@ describe('settings screen', () => {
     fireEvent.press(getByText(strings.settings.proCta));
 
     expect(presentPaywall).toHaveBeenCalled();
+  });
+
+  it('hides the Go Pro cta and shows the active-Pro copy once entitled', async () => {
+    (isPro as jest.Mock).mockReturnValue(true);
+
+    const { getByText, queryByText } = render(<YouScreen />);
+
+    await waitFor(() => {
+      expect(getByText(strings.settings.proActiveBody)).toBeTruthy();
+    });
+
+    expect(queryByText(strings.settings.proCta)).toBeNull();
   });
 });

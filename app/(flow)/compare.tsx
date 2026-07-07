@@ -1,5 +1,6 @@
 import * as Clipboard from 'expo-clipboard';
 import { router } from 'expo-router';
+import { ArrowLeft } from 'lucide-react-native';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -120,6 +121,9 @@ export default function CompareScreen() {
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.headerRow}>
+          <Pressable accessibilityRole="button" onPress={() => router.back()} style={styles.backButton}>
+            <ArrowLeft color={colors.ink55} size={16} strokeWidth={2} />
+          </Pressable>
           <Text style={styles.headerTitle}>{headerTitle}</Text>
           <Pill variant="neutral">{strings.compare.optionsPill}</Pill>
         </View>
@@ -179,6 +183,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: spacing[2],
+  },
+  backButton: {
+    width: 32,
+    height: 32,
+    borderRadius: radii.pill,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.7)',
   },
   headerTitle: {
     flex: 1,

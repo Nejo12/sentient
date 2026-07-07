@@ -90,7 +90,7 @@ describe('entitlements', () => {
   it('returns true for isPro when an active entitlement exists', async () => {
     process.env.EXPO_PUBLIC_REVENUECAT_API_KEY = 'test-key';
     PurchasesMock.getCustomerInfo.mockResolvedValue({
-      entitlements: { active: { pro: { identifier: 'pro' } } },
+      entitlements: { active: { 'Sentient Pro': { identifier: 'Sentient Pro' } } },
     } as Awaited<ReturnType<typeof Purchases.getCustomerInfo>>);
 
     await refreshProStatus();
@@ -102,7 +102,7 @@ describe('entitlements', () => {
   it('allows unlimited rewrites for Pro users even at the limit', async () => {
     process.env.EXPO_PUBLIC_REVENUECAT_API_KEY = 'test-key';
     PurchasesMock.getCustomerInfo.mockResolvedValue({
-      entitlements: { active: { pro: { identifier: 'pro' } } },
+      entitlements: { active: { 'Sentient Pro': { identifier: 'Sentient Pro' } } },
     } as Awaited<ReturnType<typeof Purchases.getCustomerInfo>>);
 
     await AsyncStorage.setItem(
