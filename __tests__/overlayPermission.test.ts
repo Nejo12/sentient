@@ -16,7 +16,7 @@ jest.mock('expo-application', () => ({
 
 jest.mock('expo-intent-launcher', () => ({
   ActivityAction: {
-    MANAGE_APP_OVERLAY_PERMISSION: 'android.settings.MANAGE_APP_OVERLAY_PERMISSION',
+    MANAGE_OVERLAY_PERMISSION: 'android.settings.action.MANAGE_OVERLAY_PERMISSION',
   },
   startActivityAsync: jest.fn(),
 }));
@@ -62,7 +62,7 @@ describe('overlayPermission', () => {
     await requestOverlayPermission();
 
     expect(IntentLauncher.startActivityAsync).toHaveBeenCalledWith(
-      IntentLauncher.ActivityAction.MANAGE_APP_OVERLAY_PERMISSION,
+      IntentLauncher.ActivityAction.MANAGE_OVERLAY_PERMISSION,
       { data: 'package:com.sentient.app' },
     );
   });
