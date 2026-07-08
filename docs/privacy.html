@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Sentient — privacy policy</title>
+<meta name="description" content="Privacy policy for the Sentient app." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Serif+Display&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --paper: #F5EFE6;
+    --ink: #2B2521;
+    --ink-72: rgba(43,37,33,0.72);
+    --ink-55: rgba(43,37,33,0.55);
+    --oxblood: #7F3523;
+    --border: rgba(43,37,33,0.12);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: 'DM Sans', sans-serif;
+    line-height: 1.65;
+  }
+  .wrap {
+    max-width: 680px;
+    margin: 0 auto;
+    padding: 56px 24px 96px;
+  }
+  a.back {
+    display: inline-block;
+    color: var(--oxblood);
+    text-decoration: none;
+    font-size: 13.5px;
+    font-weight: 600;
+    margin-bottom: 32px;
+  }
+  a.back:hover { text-decoration: underline; }
+  h1 {
+    font-family: 'DM Serif Display', serif;
+    font-weight: 400;
+    font-size: 32px;
+    letter-spacing: -0.4px;
+    margin: 0 0 8px;
+  }
+  .updated {
+    font-size: 13px;
+    color: var(--ink-55);
+    margin: 0 0 40px;
+  }
+  h2 {
+    font-size: 16px;
+    font-weight: 600;
+    margin: 36px 0 10px;
+  }
+  p, li { font-size: 14.5px; color: var(--ink-72); }
+  ul { padding-left: 20px; }
+  li { margin-bottom: 8px; }
+  .card {
+    background: rgba(255,255,255,0.6);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 28px 32px;
+  }
+  footer {
+    margin-top: 48px;
+    border-top: 1px solid var(--border);
+    padding-top: 24px;
+    font-size: 13px;
+    color: var(--ink-55);
+  }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <a class="back" href="./index.html">&larr; Sentient</a>
+    <h1>Privacy policy</h1>
+    <p class="updated">Last updated: 8 July 2026</p>
+
+    <div class="card">
+      <p>
+        Sentient helps you fix a reply before you send it. This policy explains what information
+        Sentient handles, and why. Sentient is built to only read a message when you deliberately
+        share it — it never reads your chats in the background.
+      </p>
+
+      <h2>What Sentient reads</h2>
+      <p>
+        Sentient only receives a message when you explicitly share it to the app (via the iOS
+        share sheet or the Android floating bubble), or when you type a rough draft yourself. It
+        does not have access to your chat apps, contacts, or messages beyond what you share.
+      </p>
+
+      <h2>How your message is processed</h2>
+      <p>
+        The message you share, together with any rough draft and the tone or intent you choose, is
+        sent to our server-side rewriting service (built on Supabase Edge Functions), which calls
+        OpenAI's API to generate rewrite options. Your message is not stored by OpenAI beyond what
+        is required to generate a response, and our server never stores your OpenAI API credentials
+        on your device because there are none on your device — the key is kept server-side only.
+      </p>
+
+      <h2>Your account and history</h2>
+      <p>
+        If you sign in, Sentient can save your rewrite history (the messages you've shared and the
+        replies you chose) to your account via Supabase, so you can find them again later. This is
+        private to your account. You can turn history saving off at any time in Settings — existing
+        entries are not created while it's off. Signing in is optional; the core rewriting flow
+        works without an account, subject to the free daily limit.
+      </p>
+
+      <h2>Subscriptions</h2>
+      <p>
+        Sentient Pro subscriptions are handled by Apple's App Store (and, on Android, Google Play)
+        and managed through RevenueCat, which tells our app whether your subscription is active. We
+        do not process or store your payment details ourselves — that is handled entirely by
+        Apple/Google.
+      </p>
+
+      <h2>What Sentient never does</h2>
+      <ul>
+        <li>It never reads or watches your chats in the background.</li>
+        <li>It never sends a reply on your behalf — you always copy and send it yourself.</li>
+        <li>It never sells your data to third parties.</li>
+      </ul>
+
+      <h2>Data retention and deletion</h2>
+      <p>
+        If you have an account, you can request deletion of your account and associated history at
+        any time by contacting us (see below). We will remove your stored data within a reasonable
+        time of your request.
+      </p>
+
+      <h2>Third-party services used</h2>
+      <ul>
+        <li><strong>OpenAI</strong> — generates the rewrite options and advice, called server-side only.</li>
+        <li><strong>Supabase</strong> — authentication, rewrite history storage, and the server-side function that talks to OpenAI.</li>
+        <li><strong>RevenueCat</strong> — subscription status and entitlement management.</li>
+      </ul>
+
+      <h2>Changes to this policy</h2>
+      <p>
+        If this policy changes in a meaningful way, we'll update the date at the top of this page.
+      </p>
+
+      <h2>Contact</h2>
+      <p>
+        Questions about privacy or a data request: <a href="mailto:larneygee@gmail.com" style="color: var(--oxblood);">larneygee@gmail.com</a>
+      </p>
+    </div>
+
+    <footer>&copy; 2026 Sentient</footer>
+  </div>
+</body>
+</html>
