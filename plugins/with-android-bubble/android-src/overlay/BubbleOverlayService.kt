@@ -4,9 +4,11 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
+import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.graphics.PixelFormat
+import android.net.Uri
 import android.os.Build
 import android.os.IBinder
 import android.view.Gravity
@@ -139,6 +141,8 @@ class BubbleOverlayService : Service() {
                 MotionEvent.ACTION_UP -> {
                     if (hasMoved) {
                         snapToEdge()
+                    } else {
+                        onBubbleTapped()
                     }
                     true
                 }
@@ -148,6 +152,27 @@ class BubbleOverlayService : Service() {
 
         windowManager.addView(bubble, layoutParams)
         bubbleView = bubble
+    }
+
+    private fun onBubbleTapped() {
+        val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        val clipText = clipboard.primaryClip
+            ?.takeIf { it.itemCount > 0 }
+            ?.getItemAt(0)
+            ?.coerceToText(this)
+            ?.toString()
+            ?.trim()
+
+        val uriBuilder = Uri.parse("sentient://choose").buildUpon()
+        uriBuilder.appendQueryParameter("sourceApp", "Android")
+        if (!clipText.isNullOrEmpty()) {
+            uriBuilder.appendQueryParameter("message", clipText)
+        }
+
+        val launchIntent = Intent(Intent.ACTION_VIEW, uriBuilder.build()).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        startActivity(launchIntent)
     }
 
     private fun snapToEdge() {
