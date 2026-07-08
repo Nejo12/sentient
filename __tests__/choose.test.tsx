@@ -6,7 +6,7 @@ import { fetchRewrites } from '../src/services/rewriteApi';
 import type { RewriteOption } from '../src/types/rewrite';
 
 jest.mock('expo-router', () => ({
-  router: { push: jest.fn() },
+  router: { push: jest.fn(), back: jest.fn(), replace: jest.fn(), canGoBack: jest.fn() },
   useLocalSearchParams: jest.fn(),
 }));
 
@@ -29,8 +29,12 @@ jest.mock('expo-share-intent', () => ({
   useShareIntentContext: jest.fn(),
 }));
 
+jest.mock('expo-clipboard', () => ({
+  getStringAsync: jest.fn(),
+}));
+
 const { router, useLocalSearchParams } = jest.requireMock('expo-router') as {
-  router: { push: jest.Mock };
+  router: { push: jest.Mock; back: jest.Mock; replace: jest.Mock; canGoBack: jest.Mock };
   useLocalSearchParams: jest.Mock;
 };
 
@@ -42,6 +46,10 @@ const { addEventListener, getInitialURL, useLinkingURL } = jest.requireMock('exp
 
 const { useShareIntentContext } = jest.requireMock('expo-share-intent') as {
   useShareIntentContext: jest.Mock;
+};
+
+const { getStringAsync } = jest.requireMock('expo-clipboard') as {
+  getStringAsync: jest.Mock;
 };
 
 const rewriteOptions: RewriteOption[] = [
@@ -83,6 +91,8 @@ describe('choose screen', () => {
       name: 'Sam',
       app: 'WhatsApp',
     });
+    getStringAsync.mockResolvedValue('');
+    router.canGoBack.mockReturnValue(true);
   });
 
   it('fetches rewrites immediately for missing intent', async () => {
@@ -185,5 +195,90 @@ describe('choose screen', () => {
     rerender(<ChooseScreen />);
 
     expect(getByText('Are you free tomorrow?')).toBeTruthy();
+  });
+
+  it('reads the clipboard and shows it when opened from the Android bubble with no message', async () => {
+    useLocalSearchParams.mockReturnValue({
+      sourceApp: 'Android',
+    });
+    getStringAsync.mockResolvedValue('Copied from a totally different app');
+
+    const { getByText } = render(<ChooseScreen />);
+
+    await waitFor(() => {
+      expect(getStringAsync).toHaveBeenCalled();
+    });
+
+    await waitFor(() => {
+      expect(getByText('Copied from a totally different app')).toBeTruthy();
+    });
+  });
+
+  it('leaves the empty state intact when the clipboard is empty on the Android bubble route', async () => {
+    useLocalSearchParams.mockReturnValue({
+      sourceApp: 'Android',
+    });
+    getStringAsync.mockResolvedValue('');
+
+    const { queryByText, queryByTestId } = render(<ChooseScreen />);
+
+    await waitFor(() => {
+      expect(getStringAsync).toHaveBeenCalled();
+    });
+
+    expect(useSessionStore.getState().capturedMessage).toBe('');
+    expect(queryByText('Copied from a totally different app')).toBeNull();
+
+    // The loading spinner must resolve once the clipboard check completes,
+    // even though no usable text was found, otherwise the user is stuck on
+    // a spinner forever (see prior bug: capturedMessage never gets set, so
+    // isLoadingSharedMessage stayed true indefinitely).
+    await waitFor(() => {
+      expect(queryByTestId('shared-message-loading')).toBeNull();
+    });
+  });
+
+  it('does not get stuck loading when the clipboard resolves to whitespace-only text on the Android bubble route', async () => {
+    useLocalSearchParams.mockReturnValue({
+      sourceApp: 'Android',
+    });
+    getStringAsync.mockResolvedValue('   ');
+
+    const { queryByTestId, getByText } = render(<ChooseScreen />);
+
+    await waitFor(() => {
+      expect(getStringAsync).toHaveBeenCalled();
+    });
+
+    await waitFor(() => {
+      expect(queryByTestId('shared-message-loading')).toBeNull();
+    });
+
+    expect(useSessionStore.getState().capturedMessage).toBe('');
+    expect(getByText('What do you need?')).toBeTruthy();
+  });
+
+  it('goes back when the close button is pressed and there is back-history', () => {
+    router.canGoBack.mockReturnValue(true);
+
+    // The close (X) button is the first accessibilityRole="button" element
+    // in the header, ahead of the intent cards below it.
+    const { getAllByRole } = render(<ChooseScreen />);
+    const [closeButton] = getAllByRole('button');
+    fireEvent.press(closeButton);
+
+    expect(router.back).toHaveBeenCalledTimes(1);
+    expect(router.replace).not.toHaveBeenCalled();
+  });
+
+  it('falls back to the tab-bar home when the close button is pressed with no back-history', () => {
+    router.canGoBack.mockReturnValue(false);
+
+    const { getAllByRole } = render(<ChooseScreen />);
+    const [closeButton] = getAllByRole('button');
+    fireEvent.press(closeButton);
+
+    expect(router.back).not.toHaveBeenCalled();
+    expect(router.replace).toHaveBeenCalledWith('/(tabs)');
   });
 });

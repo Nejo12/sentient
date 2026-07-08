@@ -1,4 +1,3 @@
-import { router } from 'expo-router';
 import { ArrowLeft, ArrowRight, Copy, Pencil } from 'lucide-react-native';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -25,6 +24,7 @@ import { useSettingsStore } from '../../src/store/settingsStore';
 import { colors, radii, spacing } from '../../src/theme/tokens';
 import { fonts } from '../../src/theme/typography';
 import { copyToClipboard } from '../../src/utils/clipboard';
+import { goBackOrHome } from '../../src/utils/navigation';
 
 const TOAST_TIMEOUT_MS = 1300;
 const WHATSAPP_URL = 'whatsapp://';
@@ -128,7 +128,7 @@ export default function SendBackScreen() {
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
-          <Pressable accessibilityRole="button" onPress={() => router.back()} style={styles.backButton}>
+          <Pressable accessibilityRole="button" onPress={goBackOrHome} style={styles.backButton}>
             <ArrowLeft color={colors.ink55} size={16} strokeWidth={2} />
           </Pressable>
           <Text style={styles.headerTitle}>{strings.sendBack.readyToSend}</Text>
@@ -190,7 +190,7 @@ export default function SendBackScreen() {
             {strings.sendBack.copyAndSwitch(appName)}
           </Button>
           <Button
-            onPress={() => router.back()}
+            onPress={goBackOrHome}
             size="lg"
             style={styles.fullWidthButton}
             variant="ghost"

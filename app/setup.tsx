@@ -17,6 +17,7 @@ import { BrandMark } from '../src/components/BrandMark';
 import { Button } from '../src/components/Button';
 import { Card } from '../src/components/Card';
 import { strings } from '../src/constants/strings';
+import { startBubble, stopBubble } from '../src/services/bubbleService';
 import {
   isOverlayPermissionGranted,
   requestOverlayPermission,
@@ -40,7 +41,7 @@ const DEV_CHOOSE_PARAMS = {
   },
 };
 
-async function loadOverlayDoneState(): Promise<boolean> {
+async function loadOverlayDoneState(): Promise<{ done: boolean; granted: boolean }> {
   const [storedDone, granted] = await Promise.all([
     isOverlaySetupDone(),
     isOverlayPermissionGranted(),
@@ -49,7 +50,7 @@ async function loadOverlayDoneState(): Promise<boolean> {
   if (done && !storedDone) {
     await setOverlaySetupDone();
   }
-  return done;
+  return { done, granted };
 }
 
 export default function SetupScreen() {
@@ -57,13 +58,19 @@ export default function SetupScreen() {
   const [overlayDone, setOverlayDone] = useState(false);
 
   const refreshOverlayDone = useCallback(async () => {
-    setOverlayDone(await loadOverlayDoneState());
+    const { done } = await loadOverlayDoneState();
+    setOverlayDone(done);
   }, []);
 
   useEffect(() => {
     void isShareSetupDone().then(setShareDone);
     if (Platform.OS === 'android') {
-      void loadOverlayDoneState().then(setOverlayDone);
+      void loadOverlayDoneState().then(({ done, granted }) => {
+        setOverlayDone(done);
+        if (granted) {
+          void startBubble();
+        }
+      });
     }
   }, []);
 
@@ -75,6 +82,11 @@ export default function SetupScreen() {
     const subscription = AppState.addEventListener('change', (nextState) => {
       if (nextState === 'active') {
         void refreshOverlayDone();
+        void isOverlayPermissionGranted().then((granted) => {
+          if (!granted) {
+            void stopBubble();
+          }
+        });
       }
     });
 
@@ -89,8 +101,12 @@ export default function SetupScreen() {
 
   const handleOverlayRowPress = useCallback(async () => {
     await requestOverlayPermission();
-    await refreshOverlayDone();
-  }, [refreshOverlayDone]);
+    const { done, granted } = await loadOverlayDoneState();
+    setOverlayDone(done);
+    if (granted) {
+      await startBubble();
+    }
+  }, []);
 
   const handleContinue = useCallback(async () => {
     await setSetupComplete();

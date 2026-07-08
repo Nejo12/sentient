@@ -6,7 +6,7 @@ import { useSessionStore } from '../src/store/sessionStore';
 import type { RewriteOption } from '../src/types/rewrite';
 
 jest.mock('expo-router', () => ({
-  router: { push: jest.fn() },
+  router: { push: jest.fn(), back: jest.fn(), replace: jest.fn(), canGoBack: jest.fn() },
 }));
 
 jest.mock('expo-clipboard', () => ({
@@ -23,7 +23,7 @@ jest.mock('../src/services/entitlements', () => ({
 }));
 
 const { router } = jest.requireMock('expo-router') as {
-  router: { push: jest.Mock };
+  router: { push: jest.Mock; back: jest.Mock; replace: jest.Mock; canGoBack: jest.Mock };
 };
 const Clipboard = jest.requireMock('expo-clipboard') as {
   setStringAsync: jest.Mock;
@@ -66,6 +66,7 @@ describe('compare screen', () => {
       loading: false,
       error: null,
     });
+    router.canGoBack.mockReturnValue(true);
   });
 
   it('shows three loading skeleton cards with no spinner', () => {
@@ -127,5 +128,27 @@ describe('compare screen', () => {
         }),
       );
     });
+  });
+
+  it('goes back when the back button is pressed and there is back-history', () => {
+    router.canGoBack.mockReturnValue(true);
+
+    // The back arrow button is the first accessibilityRole="button" element
+    // in the header row.
+    const { getAllByRole } = render(<CompareScreen />);
+    fireEvent.press(getAllByRole('button')[0]);
+
+    expect(router.back).toHaveBeenCalledTimes(1);
+    expect(router.replace).not.toHaveBeenCalled();
+  });
+
+  it('falls back to the tab-bar home when the back button is pressed with no back-history', () => {
+    router.canGoBack.mockReturnValue(false);
+
+    const { getAllByRole } = render(<CompareScreen />);
+    fireEvent.press(getAllByRole('button')[0]);
+
+    expect(router.back).not.toHaveBeenCalled();
+    expect(router.replace).toHaveBeenCalledWith('/(tabs)');
   });
 });

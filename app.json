@@ -35,6 +35,7 @@
     "plugins": [
       "expo-router",
       "./plugins/with-ios-share-text-fix",
+      "./plugins/with-android-bubble",
       [
         "expo-share-intent",
         {

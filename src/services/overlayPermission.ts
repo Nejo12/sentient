@@ -36,7 +36,7 @@ export async function requestOverlayPermission(): Promise<void> {
   }
 
   await IntentLauncher.startActivityAsync(
-    IntentLauncher.ActivityAction.MANAGE_APP_OVERLAY_PERMISSION,
+    IntentLauncher.ActivityAction.MANAGE_OVERLAY_PERMISSION,
     { data: `package:${packageName}` },
   );
 }
