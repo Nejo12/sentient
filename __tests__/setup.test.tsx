@@ -168,4 +168,22 @@ describe('setup screen', () => {
       expect(startBubble).toHaveBeenCalled();
     });
   });
+
+  it('does not start the bubble on mount when setup was previously done but permission is no longer granted', async () => {
+    const { isOverlayPermissionGranted } = jest.requireMock(
+      '../src/services/overlayPermission',
+    );
+    const { startBubble } = jest.requireMock('../src/services/bubbleService');
+    Platform.OS = 'android';
+    (isOverlaySetupDone as jest.Mock).mockResolvedValue(true);
+    isOverlayPermissionGranted.mockResolvedValue(false);
+
+    const { getByTestId } = render(<SetupScreen />);
+
+    await waitFor(() => {
+      expect(getByTestId('overlay-done-badge')).toBeTruthy();
+    });
+
+    expect(startBubble).not.toHaveBeenCalled();
+  });
 });

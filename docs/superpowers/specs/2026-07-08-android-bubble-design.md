@@ -50,12 +50,18 @@ BubbleOverlayService.kt   (foreground Service)
         │  - startForeground() with a low-priority "Sentient bubble" notification
         │  - WindowManager overlay view: 56px oxblood circle + white brand glyph
         │  - drag handling + snap-to-edge on release
-        │  - on tap: read ClipboardManager text, build deep link, fire Intent
+        │  - on tap: fire Intent, no clipboard read here (Android denies
+        │    clipboard access to unfocused apps/windows, and the overlay
+        │    service is never focused)
         ▼
-sentient://choose?message=<clipboard text>&sourceApp=Android
+sentient://choose?sourceApp=Android   (no message param)
         │
         ▼
-app/(flow)/choose.tsx   (existing route-param / deep-link handling — unchanged)
+app/(flow)/choose.tsx   (existing route-param / deep-link handling)
+        │  - once genuinely focused, reads the clipboard client-side via
+        │    expo-clipboard and captures it as the message
+        ▼
+Choose screen shows the captured clipboard text
 ```
 
 ## 5. Components
@@ -63,22 +69,23 @@ app/(flow)/choose.tsx   (existing route-param / deep-link handling — unchanged
 | File | Purpose |
 |---|---|
 | `plugins/with-android-bubble/index.js` | Config plugin: manifest permission + foreground service declaration, package registration, copies Kotlin sources at prebuild. Mirrors the pattern already established by `plugins/with-ios-share-text-fix/index.js` (a `withXcodeProject`-equivalent Android mod, ordered correctly relative to other plugins). |
-| `android` Kotlin sources (copied by the plugin) | `SentientOverlayModule.kt`, `SentientOverlayPackage.kt`, `BubbleOverlayService.kt` — native module + package registration + foreground service with the overlay view, drag/snap physics, clipboard read, and deep-link `Intent` firing. |
+| `android` Kotlin sources (copied by the plugin) | `SentientOverlayModule.kt`, `SentientOverlayPackage.kt`, `BubbleOverlayService.kt` — native module + package registration + foreground service with the overlay view, drag/snap physics, and deep-link `Intent` firing (no clipboard read — the overlay window is never focused, and Android denies clipboard access to unfocused apps/windows). |
 | `src/services/bubbleService.ts` (new) | Thin JS wrapper over the native module: `startBubble()`, `stopBubble()`, `isBubbleRunning()`. Parallel to the existing `src/services/overlayPermission.ts`, which already wraps `canDrawOverlays()`. |
 | `app/setup.tsx` (modified) | After `requestOverlayPermission()` succeeds and `isOverlayPermissionGranted()` confirms it, call `bubbleService.startBubble()`. |
+| `app/(flow)/choose.tsx` (modified) | Once focused with `sourceApp=Android` and no `message` param, reads the clipboard client-side via `expo-clipboard` and captures it as the message — this is where the real clipboard read happens, since only the focused Sentient activity can read it. |
 | App icon script (new, one-off) | Composes an SVG matching `src/components/BrandMark.tsx`'s exact structure (oxblood rounded-square background, white Lucide message-circle glyph, small white filled heart badge bottom-right) and rasterizes it to replace `assets/images/icon.png`, `android-icon-foreground.png`, `android-icon-background.png`, `android-icon-monochrome.png`, `splash-icon.png`. |
 
 ## 6. Data flow
 
 1. User copies a message's text in any app (WhatsApp, Messenger, etc. — normal OS copy, no Sentient involvement).
 2. User taps the floating bubble.
-3. `BubbleOverlayService` reads the clipboard via Android's `ClipboardManager` (native side, no JS involved yet).
-4. Service builds `sentient://choose?message=<url-encoded clipboard text>&sourceApp=Android` and fires an `Intent` to launch/resume the Sentient app at that URL.
-5. This lands exactly on the same deep-link path the iOS Share Extension already uses — `app/(flow)/choose.tsx`'s existing `parseShareIntent`/route-param handling, with no new parsing logic required.
+3. `BubbleOverlayService` fires an `Intent` for `sentient://choose?sourceApp=Android` (no `message` param) to launch/resume the Sentient app at that URL. The service does not read the clipboard itself — Android denies clipboard access to unfocused apps/windows, and the overlay is never the focused window.
+4. This lands on the same deep-link path the iOS Share Extension already uses — `app/(flow)/choose.tsx`'s existing `parseShareIntent`/route-param handling, with no new parsing logic required for the URL itself.
+5. Once the Choose screen is actually on screen, Sentient's activity has real focus, so `choose.tsx` reads the clipboard client-side via `expo-clipboard` and captures the trimmed text as the message, the same way a share-sheet-provided message would be captured.
 
 ## 7. Error handling
 
-- **Empty/non-text clipboard:** deep link omits `message`; Choose falls back to its existing empty state. No special-case native code.
+- **Empty/non-text clipboard:** handled client-side in `choose.tsx` — once the async `Clipboard.getStringAsync()` check resolves with empty/whitespace-only/non-text content, the screen falls through to its existing empty-state quote card, the same as if no message had ever arrived. No special-case native code.
 - **Overlay permission revoked while service is running:** the app already re-checks `isOverlayPermissionGranted()` in `app/setup.tsx` on every `AppState` transition to `active` (existing code). This spec extends that same check: if permission is no longer granted, call `bubbleService.stopBubble()` there, rather than adding a separate polling mechanism inside the service itself.
 - **`startBubble()` called without permission:** rejects with a distinct error code (e.g. `OVERLAY_DENIED`) rather than failing silently, matching the pattern already used by other native calls in this codebase.
 
@@ -100,10 +107,10 @@ There is no existing Kotlin test harness in this repo (the iOS native fix was ve
 | 3 | `SentientOverlayModule.kt` + `SentientOverlayPackage.kt` (native bridge, no UI yet) + `src/services/bubbleService.ts`. |
 | 4 | `BubbleOverlayService.kt`: overlay view, foreground notification, start/stop lifecycle. |
 | 5 | Drag + snap-to-edge handling. |
-| 6 | Clipboard read + deep-link `Intent` firing on tap. |
-| 7 | Wire `app/setup.tsx` to auto-start the bubble once permission is granted. |
+| 6 | Deep-link `Intent` firing on tap (no clipboard read in the native service). |
+| 7 | Wire `app/setup.tsx` to auto-start the bubble once permission is granted, and `app/(flow)/choose.tsx` to read the clipboard client-side once focused for `sourceApp=Android` launches. |
 | 8 | On-device verification: permission grant → bubble appears → drag/snap → tap → clipboard text lands in Choose. |
 
 ## 10. Privacy note
 
-Consistent with the existing privacy stance (`docs/superpowers/specs/2026-07-04-sentient-design.md` §13): the bubble only reads the clipboard when the user taps it, never in the background, and nothing is sent anywhere until the user explicitly acts in the Choose/Compare/Send-back flow exactly as today.
+Consistent with the existing privacy stance (`docs/superpowers/specs/2026-07-04-sentient-design.md` §13): the clipboard is only read once the user has tapped the bubble and the Choose screen is genuinely focused (in `app/(flow)/choose.tsx`, not the background overlay service), never in the background, and nothing is sent anywhere until the user explicitly acts in the Choose/Compare/Send-back flow exactly as today.

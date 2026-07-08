@@ -41,7 +41,7 @@ const DEV_CHOOSE_PARAMS = {
   },
 };
 
-async function loadOverlayDoneState(): Promise<boolean> {
+async function loadOverlayDoneState(): Promise<{ done: boolean; granted: boolean }> {
   const [storedDone, granted] = await Promise.all([
     isOverlaySetupDone(),
     isOverlayPermissionGranted(),
@@ -50,7 +50,7 @@ async function loadOverlayDoneState(): Promise<boolean> {
   if (done && !storedDone) {
     await setOverlaySetupDone();
   }
-  return done;
+  return { done, granted };
 }
 
 export default function SetupScreen() {
@@ -58,15 +58,16 @@ export default function SetupScreen() {
   const [overlayDone, setOverlayDone] = useState(false);
 
   const refreshOverlayDone = useCallback(async () => {
-    setOverlayDone(await loadOverlayDoneState());
+    const { done } = await loadOverlayDoneState();
+    setOverlayDone(done);
   }, []);
 
   useEffect(() => {
     void isShareSetupDone().then(setShareDone);
     if (Platform.OS === 'android') {
-      void loadOverlayDoneState().then((done) => {
+      void loadOverlayDoneState().then(({ done, granted }) => {
         setOverlayDone(done);
-        if (done) {
+        if (granted) {
           void startBubble();
         }
       });
@@ -100,9 +101,9 @@ export default function SetupScreen() {
 
   const handleOverlayRowPress = useCallback(async () => {
     await requestOverlayPermission();
-    const done = await loadOverlayDoneState();
+    const { done, granted } = await loadOverlayDoneState();
     setOverlayDone(done);
-    if (done) {
+    if (granted) {
       await startBubble();
     }
   }, []);
