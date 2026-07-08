@@ -17,6 +17,7 @@ import { BrandMark } from '../src/components/BrandMark';
 import { Button } from '../src/components/Button';
 import { Card } from '../src/components/Card';
 import { strings } from '../src/constants/strings';
+import { startBubble, stopBubble } from '../src/services/bubbleService';
 import {
   isOverlayPermissionGranted,
   requestOverlayPermission,
@@ -75,6 +76,11 @@ export default function SetupScreen() {
     const subscription = AppState.addEventListener('change', (nextState) => {
       if (nextState === 'active') {
         void refreshOverlayDone();
+        void isOverlayPermissionGranted().then((granted) => {
+          if (!granted) {
+            void stopBubble();
+          }
+        });
       }
     });
 
@@ -89,8 +95,12 @@ export default function SetupScreen() {
 
   const handleOverlayRowPress = useCallback(async () => {
     await requestOverlayPermission();
-    await refreshOverlayDone();
-  }, [refreshOverlayDone]);
+    const done = await loadOverlayDoneState();
+    setOverlayDone(done);
+    if (done) {
+      await startBubble();
+    }
+  }, []);
 
   const handleContinue = useCallback(async () => {
     await setSetupComplete();

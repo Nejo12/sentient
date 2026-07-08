@@ -2,6 +2,7 @@ import { fireEvent, render, waitFor } from '@testing-library/react-native';
 import { Linking, Platform } from 'react-native';
 
 import SetupScreen from '../app/setup';
+import { strings } from '../src/constants/strings';
 import {
   isOverlaySetupDone,
   isShareSetupDone,
@@ -29,6 +30,11 @@ jest.mock('../src/services/setupStorage', () => ({
 jest.mock('../src/services/overlayPermission', () => ({
   isOverlayPermissionGranted: jest.fn(),
   requestOverlayPermission: jest.fn(),
+}));
+
+jest.mock('../src/services/bubbleService', () => ({
+  startBubble: jest.fn().mockResolvedValue(undefined),
+  stopBubble: jest.fn().mockResolvedValue(undefined),
 }));
 
 const { router } = jest.requireMock('expo-router') as {
@@ -126,5 +132,25 @@ describe('setup screen', () => {
     const { queryByText } = render(<SetupScreen />);
 
     expect(queryByText('Draw over other apps')).toBeNull();
+  });
+
+  it('starts the bubble once overlay permission is granted on Android', async () => {
+    const { requestOverlayPermission, isOverlayPermissionGranted } = jest.requireMock(
+      '../src/services/overlayPermission',
+    );
+    const { startBubble } = jest.requireMock('../src/services/bubbleService');
+    Platform.OS = 'android';
+    isOverlayPermissionGranted.mockResolvedValue(true);
+
+    const { getByText } = render(<SetupScreen />);
+
+    fireEvent.press(getByText(strings.setup.overlayTitle));
+
+    await waitFor(() => {
+      expect(requestOverlayPermission).toHaveBeenCalled();
+    });
+    await waitFor(() => {
+      expect(startBubble).toHaveBeenCalled();
+    });
   });
 });
