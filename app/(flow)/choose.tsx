@@ -35,6 +35,7 @@ import { useSessionStore } from '../../src/store/sessionStore';
 import { colors, radii, spacing } from '../../src/theme/tokens';
 import { fonts } from '../../src/theme/typography';
 import type { Intent, Understanding } from '../../src/types/rewrite';
+import { goBackOrHome } from '../../src/utils/navigation';
 
 const FALLBACK_NAME = 'them';
 const FALLBACK_SOURCE_APP = 'your chat app';
@@ -241,7 +242,7 @@ export default function ChooseScreen() {
             <BrandMark />
             <Text style={styles.wordmark}>{strings.brand.name}</Text>
           </View>
-          <Pressable accessibilityRole="button" onPress={() => router.back()} style={styles.closeButton}>
+          <Pressable accessibilityRole="button" onPress={goBackOrHome} style={styles.closeButton}>
             <X color={colors.ink55} size={16} strokeWidth={2} />
           </Pressable>
         </View>

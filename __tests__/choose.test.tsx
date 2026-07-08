@@ -6,7 +6,7 @@ import { fetchRewrites } from '../src/services/rewriteApi';
 import type { RewriteOption } from '../src/types/rewrite';
 
 jest.mock('expo-router', () => ({
-  router: { push: jest.fn() },
+  router: { push: jest.fn(), back: jest.fn(), replace: jest.fn(), canGoBack: jest.fn() },
   useLocalSearchParams: jest.fn(),
 }));
 
@@ -34,7 +34,7 @@ jest.mock('expo-clipboard', () => ({
 }));
 
 const { router, useLocalSearchParams } = jest.requireMock('expo-router') as {
-  router: { push: jest.Mock };
+  router: { push: jest.Mock; back: jest.Mock; replace: jest.Mock; canGoBack: jest.Mock };
   useLocalSearchParams: jest.Mock;
 };
 
@@ -92,6 +92,7 @@ describe('choose screen', () => {
       app: 'WhatsApp',
     });
     getStringAsync.mockResolvedValue('');
+    router.canGoBack.mockReturnValue(true);
   });
 
   it('fetches rewrites immediately for missing intent', async () => {
@@ -255,5 +256,29 @@ describe('choose screen', () => {
 
     expect(useSessionStore.getState().capturedMessage).toBe('');
     expect(getByText('What do you need?')).toBeTruthy();
+  });
+
+  it('goes back when the close button is pressed and there is back-history', () => {
+    router.canGoBack.mockReturnValue(true);
+
+    // The close (X) button is the first accessibilityRole="button" element
+    // in the header, ahead of the intent cards below it.
+    const { getAllByRole } = render(<ChooseScreen />);
+    const [closeButton] = getAllByRole('button');
+    fireEvent.press(closeButton);
+
+    expect(router.back).toHaveBeenCalledTimes(1);
+    expect(router.replace).not.toHaveBeenCalled();
+  });
+
+  it('falls back to the tab-bar home when the close button is pressed with no back-history', () => {
+    router.canGoBack.mockReturnValue(false);
+
+    const { getAllByRole } = render(<ChooseScreen />);
+    const [closeButton] = getAllByRole('button');
+    fireEvent.press(closeButton);
+
+    expect(router.back).not.toHaveBeenCalled();
+    expect(router.replace).toHaveBeenCalledWith('/(tabs)');
   });
 });

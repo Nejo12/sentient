@@ -18,6 +18,7 @@ import { fetchRewrites } from '../../src/services/rewriteApi';
 import { useSessionStore } from '../../src/store/sessionStore';
 import { colors, radii, spacing } from '../../src/theme/tokens';
 import { fonts } from '../../src/theme/typography';
+import { goBackOrHome } from '../../src/utils/navigation';
 
 const COPY_FEEDBACK_MS = 1200;
 
@@ -121,7 +122,7 @@ export default function CompareScreen() {
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.headerRow}>
-          <Pressable accessibilityRole="button" onPress={() => router.back()} style={styles.backButton}>
+          <Pressable accessibilityRole="button" onPress={goBackOrHome} style={styles.backButton}>
             <ArrowLeft color={colors.ink55} size={16} strokeWidth={2} />
           </Pressable>
           <Text style={styles.headerTitle}>{headerTitle}</Text>

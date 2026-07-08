@@ -20,6 +20,8 @@ jest.mock('../src/services/settingsService', () => ({
 jest.mock('expo-router', () => ({
   router: {
     back: jest.fn(),
+    replace: jest.fn(),
+    canGoBack: jest.fn(),
   },
 }));
 
@@ -32,7 +34,7 @@ jest.mock('../src/services/historyService', () => ({
 }));
 
 const { router } = jest.requireMock('expo-router') as {
-  router: { back: jest.Mock };
+  router: { back: jest.Mock; replace: jest.Mock; canGoBack: jest.Mock };
 };
 
 describe('send-back screen', () => {
@@ -46,6 +48,7 @@ describe('send-back screen', () => {
       sourceApp: 'WhatsApp',
       chosenReply: 'I hear you. I want to make this better.',
     });
+    router.canGoBack.mockReturnValue(true);
   });
 
   it('copies and opens WhatsApp from primary action', async () => {
@@ -142,5 +145,33 @@ describe('send-back screen', () => {
     fireEvent.press(getByText(strings.sendBack.backToOptions));
 
     expect(router.back).toHaveBeenCalledTimes(1);
+  });
+
+  it('falls back to the tab-bar home from the ghost action when there is no back-history', () => {
+    router.canGoBack.mockReturnValue(false);
+    const { getByText } = render(<SendBackScreen />);
+
+    fireEvent.press(getByText(strings.sendBack.backToOptions));
+
+    expect(router.back).not.toHaveBeenCalled();
+    expect(router.replace).toHaveBeenCalledWith('/(tabs)');
+  });
+
+  it('goes back from the header arrow when there is back-history', () => {
+    // The header back arrow is the first accessibilityRole="button" element.
+    const { getAllByRole } = render(<SendBackScreen />);
+    fireEvent.press(getAllByRole('button')[0]);
+
+    expect(router.back).toHaveBeenCalledTimes(1);
+    expect(router.replace).not.toHaveBeenCalled();
+  });
+
+  it('falls back to the tab-bar home from the header arrow when there is no back-history', () => {
+    router.canGoBack.mockReturnValue(false);
+    const { getAllByRole } = render(<SendBackScreen />);
+    fireEvent.press(getAllByRole('button')[0]);
+
+    expect(router.back).not.toHaveBeenCalled();
+    expect(router.replace).toHaveBeenCalledWith('/(tabs)');
   });
 });
