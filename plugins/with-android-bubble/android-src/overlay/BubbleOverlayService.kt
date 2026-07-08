@@ -10,11 +10,13 @@ import android.graphics.PixelFormat
 import android.os.Build
 import android.os.IBinder
 import android.view.Gravity
+import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
 import android.widget.ImageView
 import androidx.core.app.NotificationCompat
 import com.gee1216.sentient.R
+import kotlin.math.abs
 
 class BubbleOverlayService : Service() {
 
@@ -22,6 +24,7 @@ class BubbleOverlayService : Service() {
         const val NOTIFICATION_CHANNEL_ID = "sentient_bubble"
         const val NOTIFICATION_ID = 1001
         const val BUBBLE_SIZE_DP = 56
+        const val TAP_MOVE_THRESHOLD_PX = 12
         var isRunning: Boolean = false
             private set
     }
@@ -29,6 +32,11 @@ class BubbleOverlayService : Service() {
     private lateinit var windowManager: WindowManager
     private var bubbleView: View? = null
     private lateinit var layoutParams: WindowManager.LayoutParams
+    private var initialX = 0
+    private var initialY = 0
+    private var initialTouchX = 0f
+    private var initialTouchY = 0f
+    private var hasMoved = false
 
     override fun onCreate() {
         super.onCreate()
@@ -107,7 +115,49 @@ class BubbleOverlayService : Service() {
         layoutParams.x = 0
         layoutParams.y = (238 * density()).toInt()
 
+        bubble.setOnTouchListener { view, event ->
+            when (event.action) {
+                MotionEvent.ACTION_DOWN -> {
+                    initialX = layoutParams.x
+                    initialY = layoutParams.y
+                    initialTouchX = event.rawX
+                    initialTouchY = event.rawY
+                    hasMoved = false
+                    true
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    val dx = (event.rawX - initialTouchX).toInt()
+                    val dy = (event.rawY - initialTouchY).toInt()
+                    if (abs(dx) > TAP_MOVE_THRESHOLD_PX || abs(dy) > TAP_MOVE_THRESHOLD_PX) {
+                        hasMoved = true
+                    }
+                    layoutParams.x = initialX + dx
+                    layoutParams.y = initialY + dy
+                    windowManager.updateViewLayout(view, layoutParams)
+                    true
+                }
+                MotionEvent.ACTION_UP -> {
+                    if (hasMoved) {
+                        snapToEdge()
+                    }
+                    true
+                }
+                else -> false
+            }
+        }
+
         windowManager.addView(bubble, layoutParams)
         bubbleView = bubble
+    }
+
+    private fun snapToEdge() {
+        val screenWidth = resources.displayMetrics.widthPixels
+        val bubbleCenterX = layoutParams.x + layoutParams.width / 2
+        layoutParams.x = if (bubbleCenterX < screenWidth / 2) {
+            0
+        } else {
+            screenWidth - layoutParams.width
+        }
+        bubbleView?.let { windowManager.updateViewLayout(it, layoutParams) }
     }
 }
