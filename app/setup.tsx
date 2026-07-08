@@ -64,7 +64,12 @@ export default function SetupScreen() {
   useEffect(() => {
     void isShareSetupDone().then(setShareDone);
     if (Platform.OS === 'android') {
-      void loadOverlayDoneState().then(setOverlayDone);
+      void loadOverlayDoneState().then((done) => {
+        setOverlayDone(done);
+        if (done) {
+          void startBubble();
+        }
+      });
     }
   }, []);
 

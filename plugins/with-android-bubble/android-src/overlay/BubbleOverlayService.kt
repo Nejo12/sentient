@@ -4,7 +4,6 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
-import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.graphics.PixelFormat
@@ -155,21 +154,10 @@ class BubbleOverlayService : Service() {
     }
 
     private fun onBubbleTapped() {
-        val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-        val clipText = clipboard.primaryClip
-            ?.takeIf { it.itemCount > 0 }
-            ?.getItemAt(0)
-            ?.coerceToText(this)
-            ?.toString()
-            ?.trim()
-
-        val uriBuilder = Uri.parse("sentient://choose").buildUpon()
-        uriBuilder.appendQueryParameter("sourceApp", "Android")
-        if (!clipText.isNullOrEmpty()) {
-            uriBuilder.appendQueryParameter("message", clipText)
-        }
-
-        val launchIntent = Intent(Intent.ACTION_VIEW, uriBuilder.build()).apply {
+        val launchIntent = Intent(
+            Intent.ACTION_VIEW,
+            Uri.parse("sentient://choose?sourceApp=Android"),
+        ).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
         startActivity(launchIntent)

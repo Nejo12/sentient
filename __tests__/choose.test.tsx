@@ -29,6 +29,10 @@ jest.mock('expo-share-intent', () => ({
   useShareIntentContext: jest.fn(),
 }));
 
+jest.mock('expo-clipboard', () => ({
+  getStringAsync: jest.fn(),
+}));
+
 const { router, useLocalSearchParams } = jest.requireMock('expo-router') as {
   router: { push: jest.Mock };
   useLocalSearchParams: jest.Mock;
@@ -42,6 +46,10 @@ const { addEventListener, getInitialURL, useLinkingURL } = jest.requireMock('exp
 
 const { useShareIntentContext } = jest.requireMock('expo-share-intent') as {
   useShareIntentContext: jest.Mock;
+};
+
+const { getStringAsync } = jest.requireMock('expo-clipboard') as {
+  getStringAsync: jest.Mock;
 };
 
 const rewriteOptions: RewriteOption[] = [
@@ -83,6 +91,7 @@ describe('choose screen', () => {
       name: 'Sam',
       app: 'WhatsApp',
     });
+    getStringAsync.mockResolvedValue('');
   });
 
   it('fetches rewrites immediately for missing intent', async () => {
@@ -185,5 +194,38 @@ describe('choose screen', () => {
     rerender(<ChooseScreen />);
 
     expect(getByText('Are you free tomorrow?')).toBeTruthy();
+  });
+
+  it('reads the clipboard and shows it when opened from the Android bubble with no message', async () => {
+    useLocalSearchParams.mockReturnValue({
+      sourceApp: 'Android',
+    });
+    getStringAsync.mockResolvedValue('Copied from a totally different app');
+
+    const { getByText } = render(<ChooseScreen />);
+
+    await waitFor(() => {
+      expect(getStringAsync).toHaveBeenCalled();
+    });
+
+    await waitFor(() => {
+      expect(getByText('Copied from a totally different app')).toBeTruthy();
+    });
+  });
+
+  it('leaves the empty state intact when the clipboard is empty on the Android bubble route', async () => {
+    useLocalSearchParams.mockReturnValue({
+      sourceApp: 'Android',
+    });
+    getStringAsync.mockResolvedValue('');
+
+    const { queryByText } = render(<ChooseScreen />);
+
+    await waitFor(() => {
+      expect(getStringAsync).toHaveBeenCalled();
+    });
+
+    expect(useSessionStore.getState().capturedMessage).toBe('');
+    expect(queryByText('Copied from a totally different app')).toBeNull();
   });
 });

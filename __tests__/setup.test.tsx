@@ -153,4 +153,19 @@ describe('setup screen', () => {
       expect(startBubble).toHaveBeenCalled();
     });
   });
+
+  it('starts the bubble on mount when overlay permission was already granted in a previous session', async () => {
+    const { isOverlayPermissionGranted } = jest.requireMock(
+      '../src/services/overlayPermission',
+    );
+    const { startBubble } = jest.requireMock('../src/services/bubbleService');
+    Platform.OS = 'android';
+    isOverlayPermissionGranted.mockResolvedValue(true);
+
+    render(<SetupScreen />);
+
+    await waitFor(() => {
+      expect(startBubble).toHaveBeenCalled();
+    });
+  });
 });

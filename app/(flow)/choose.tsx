@@ -1,3 +1,4 @@
+import * as Clipboard from 'expo-clipboard';
 import { useShareIntentContext } from 'expo-share-intent';
 import * as Linking from 'expo-linking';
 import { useLinkingURL } from 'expo-linking';
@@ -77,7 +78,9 @@ export default function ChooseScreen() {
   }, [app, message, sourceApp, text]);
 
   const resolvedContext = nativeContext ?? routeContext;
-  const isShareOpen = hasShareIntent || isShareExtensionUrl(url);
+  const isAndroidBubbleLaunch =
+    getSingleParam(sourceApp) === 'Android' && !getSingleParam(message);
+  const isShareOpen = hasShareIntent || isShareExtensionUrl(url) || isAndroidBubbleLaunch;
 
   const {
     capturedMessage,
@@ -158,6 +161,24 @@ export default function ChooseScreen() {
       subscription.remove();
     };
   }, [fallbackName, fallbackSourceApp, setCapturedContext]);
+
+  // The Android floating bubble launches this screen via a deep link
+  // (sentient://choose?sourceApp=Android) with no message param, because the
+  // overlay service is never focused and Android 10+ denies clipboard reads
+  // to unfocused apps. Once this screen is on screen, Sentient's activity has
+  // real focus, so the clipboard read here succeeds for real cross-app copies.
+  useEffect(() => {
+    if (getSingleParam(sourceApp) !== 'Android' || getSingleParam(message)) {
+      return;
+    }
+
+    void Clipboard.getStringAsync().then((clipText) => {
+      const trimmed = clipText?.trim();
+      if (trimmed) {
+        setCapturedContext(trimmed, fallbackName, 'Android');
+      }
+    });
+  }, [fallbackName, message, setCapturedContext, sourceApp]);
 
   const submit = async (nextIntent: Intent, nextUnderstanding?: Understanding) => {
     setError(null);
