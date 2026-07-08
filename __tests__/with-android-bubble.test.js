@@ -32,4 +32,10 @@ describe('addBubbleServiceToManifest', () => {
 
     expect(twice.manifest.application[0].service).toHaveLength(1);
   });
+
+  it('throws a clear error if the manifest has no <application> element', () => {
+    expect(() => addBubbleServiceToManifest({ manifest: {} })).toThrow(
+      '[with-android-bubble] Unexpected AndroidManifest.xml format',
+    );
+  });
 });

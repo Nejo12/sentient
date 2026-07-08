@@ -5,6 +5,13 @@ const SERVICE_NAME = '.overlay.BubbleOverlayService';
 /** Adds the BubbleOverlayService foreground-service declaration to the manifest's <application>. */
 function addBubbleServiceToManifest(androidManifest) {
   const { manifest } = androidManifest;
+
+  if (!Array.isArray(manifest.application) || manifest.application.length === 0) {
+    throw new Error(
+      '[with-android-bubble] Unexpected AndroidManifest.xml format — no <application> element found. Update the plugin.',
+    );
+  }
+
   const application = manifest.application[0];
 
   if (!Array.isArray(application.service)) {
