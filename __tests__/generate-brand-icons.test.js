@@ -29,4 +29,12 @@ describe('buildIconSvg', () => {
 
     expect(inset).not.toEqual(full);
   });
+
+  it('draws a full-bleed square (no rounding) when square is true', () => {
+    const rounded = buildIconSvg({ size: 100 });
+    const square = buildIconSvg({ size: 100, square: true });
+
+    expect(rounded).toMatch(/rx="\d+"/);
+    expect(square).toContain('rx="0"');
+  });
 });

@@ -19,15 +19,15 @@ const REFERENCE_HEART_RIGHT = 5;
 const REFERENCE_HEART_BOTTOM = 4;
 
 /**
- * @param {{ size: number, includeBackground?: boolean, insetRatio?: number }} options
+ * @param {{ size: number, includeBackground?: boolean, insetRatio?: number, square?: boolean }} options
  * @returns {string} SVG markup
  */
-function buildIconSvg({ size, includeBackground = true, insetRatio = 1 }) {
+function buildIconSvg({ size, includeBackground = true, insetRatio = 1, square = false }) {
   const canvas = size;
   const groupSize = size * insetRatio;
   const groupOffset = (size - groupSize) / 2;
 
-  const radius = Math.round(groupSize * 0.33);
+  const radius = square ? 0 : Math.round(groupSize * 0.33);
   const iconSize = Math.max(12, Math.round(groupSize * 0.48));
   const heartSize = Math.max(9, Math.round(groupSize * 0.3));
 
@@ -66,8 +66,8 @@ async function renderPng(svg, outputPath, size) {
 async function main() {
   const assetsDir = path.join(__dirname, '..', 'assets', 'images');
 
-  await renderPng(buildIconSvg({ size: 1024 }), path.join(assetsDir, 'icon.png'), 1024);
-  await renderPng(buildIconSvg({ size: 1024 }), path.join(assetsDir, 'splash-icon.png'), 1024);
+  await renderPng(buildIconSvg({ size: 1024, square: true }), path.join(assetsDir, 'icon.png'), 1024);
+  await renderPng(buildIconSvg({ size: 1024, square: true }), path.join(assetsDir, 'splash-icon.png'), 1024);
 
   // Adaptive icon foreground: transparent background, glyph inset to
   // Android's ~66/108 safe zone so it isn't clipped by the system mask.
