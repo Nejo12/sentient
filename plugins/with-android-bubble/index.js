@@ -6,6 +6,39 @@ const SERVICE_NAME = '.overlay.BubbleOverlayService';
 const PACKAGE_IMPORT = 'import com.gee1216.sentient.overlay.SentientOverlayPackage';
 const PACKAGE_ADD_CALL = 'packages.add(SentientOverlayPackage())';
 
+// Required to call Service#startForeground() at all (since Android 9 / API 28),
+// and required specifically for the "specialUse" foregroundServiceType declared
+// on BubbleOverlayService (since Android 14 / API 34). Without both, the service
+// crashes with a SecurityException as soon as it calls startForeground().
+const REQUIRED_PERMISSIONS = [
+  'android.permission.FOREGROUND_SERVICE',
+  'android.permission.FOREGROUND_SERVICE_SPECIAL_USE',
+];
+
+/** Adds the foreground-service permissions BubbleOverlayService needs to the manifest root. */
+function addBubbleServicePermissionsToManifest(androidManifest) {
+  const { manifest } = androidManifest;
+
+  if (!Array.isArray(manifest['uses-permission'])) {
+    manifest['uses-permission'] = [];
+  }
+
+  for (const permissionName of REQUIRED_PERMISSIONS) {
+    const alreadyPresent = manifest['uses-permission'].some(
+      (item) => item.$['android:name'] === permissionName,
+    );
+    if (!alreadyPresent) {
+      manifest['uses-permission'].push({
+        $: {
+          'android:name': permissionName,
+        },
+      });
+    }
+  }
+
+  return androidManifest;
+}
+
 /** Adds the BubbleOverlayService foreground-service declaration to the manifest's <application>. */
 function addBubbleServiceToManifest(androidManifest) {
   const { manifest } = androidManifest;
@@ -116,18 +149,15 @@ function withAndroidBubbleSources(config) {
   return withDangerousMod(config, [
     'android',
     (configMod) => {
-      const androidSrcDir = path.join(__dirname, 'android-src');
-      const destJavaDir = path.join(
-        configMod.modRequest.platformProjectRoot,
-        'app',
-        'src',
-        'main',
-        'java',
-        'com',
-        'gee1216',
-        'sentient',
+      const pluginRoot = path.join(__dirname, 'android-src');
+      const androidAppMain = path.join(configMod.modRequest.platformProjectRoot, 'app', 'src', 'main');
+
+      copyAndroidSources(
+        path.join(pluginRoot, 'overlay'),
+        path.join(androidAppMain, 'java', 'com', 'gee1216', 'sentient', 'overlay'),
       );
-      copyAndroidSources(androidSrcDir, destJavaDir);
+      copyAndroidSources(path.join(pluginRoot, 'res'), path.join(androidAppMain, 'res'));
+
       return configMod;
     },
   ]);
@@ -143,6 +173,7 @@ function withAndroidBubbleMainApplication(config) {
 function withAndroidBubble(config) {
   let result = withAndroidManifest(config, (configMod) => {
     configMod.modResults = addBubbleServiceToManifest(configMod.modResults);
+    configMod.modResults = addBubbleServicePermissionsToManifest(configMod.modResults);
     return configMod;
   });
   result = withAndroidBubbleSources(result);
@@ -152,5 +183,6 @@ function withAndroidBubble(config) {
 
 module.exports = withAndroidBubble;
 module.exports.addBubbleServiceToManifest = addBubbleServiceToManifest;
+module.exports.addBubbleServicePermissionsToManifest = addBubbleServicePermissionsToManifest;
 module.exports.copyAndroidSources = copyAndroidSources;
 module.exports.registerPackageInMainApplication = registerPackageInMainApplication;

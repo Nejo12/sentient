@@ -12,12 +12,12 @@ describe('copyAndroidSources', () => {
     const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sentient-bubble-copy-'));
 
     copyAndroidSources(
-      path.join(__dirname, '../plugins/with-android-bubble/android-src'),
+      path.join(__dirname, '../plugins/with-android-bubble/android-src/overlay'),
       tempDir,
     );
 
-    expect(fs.existsSync(path.join(tempDir, 'overlay', 'SentientOverlayModule.kt'))).toBe(true);
-    expect(fs.existsSync(path.join(tempDir, 'overlay', 'SentientOverlayPackage.kt'))).toBe(true);
+    expect(fs.existsSync(path.join(tempDir, 'SentientOverlayModule.kt'))).toBe(true);
+    expect(fs.existsSync(path.join(tempDir, 'SentientOverlayPackage.kt'))).toBe(true);
   });
 });
 

@@ -1,4 +1,7 @@
-const { addBubbleServiceToManifest } = require('../plugins/with-android-bubble');
+const {
+  addBubbleServiceToManifest,
+  addBubbleServicePermissionsToManifest,
+} = require('../plugins/with-android-bubble');
 
 function baseManifest() {
   return {
@@ -37,5 +40,32 @@ describe('addBubbleServiceToManifest', () => {
     expect(() => addBubbleServiceToManifest({ manifest: {} })).toThrow(
       '[with-android-bubble] Unexpected AndroidManifest.xml format',
     );
+  });
+});
+
+describe('addBubbleServicePermissionsToManifest', () => {
+  it('adds the FOREGROUND_SERVICE and FOREGROUND_SERVICE_SPECIAL_USE permissions', () => {
+    const result = addBubbleServicePermissionsToManifest(baseManifest());
+    const permissionNames = result.manifest['uses-permission'].map(
+      (item) => item.$['android:name'],
+    );
+
+    expect(permissionNames).toContain('android.permission.FOREGROUND_SERVICE');
+    expect(permissionNames).toContain('android.permission.FOREGROUND_SERVICE_SPECIAL_USE');
+  });
+
+  it('does not duplicate the permissions on a second run', () => {
+    const once = addBubbleServicePermissionsToManifest(baseManifest());
+    const twice = addBubbleServicePermissionsToManifest(once);
+
+    const permissionNames = twice.manifest['uses-permission'].map(
+      (item) => item.$['android:name'],
+    );
+    expect(permissionNames.filter((name) => name === 'android.permission.FOREGROUND_SERVICE')).toHaveLength(
+      1,
+    );
+    expect(
+      permissionNames.filter((name) => name === 'android.permission.FOREGROUND_SERVICE_SPECIAL_USE'),
+    ).toHaveLength(1);
   });
 });

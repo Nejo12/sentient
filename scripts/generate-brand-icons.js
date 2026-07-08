@@ -90,6 +90,20 @@ async function main() {
     path.join(assetsDir, 'android-icon-monochrome.png'),
     432,
   );
+
+  // Bubble glyph for the Android floating bubble overlay: same composition,
+  // rendered at a fixed raster large enough for xxhdpi without density variants.
+  const bubbleGlyphDir = path.join(
+    __dirname,
+    '..',
+    'plugins',
+    'with-android-bubble',
+    'android-src',
+    'res',
+    'drawable',
+  );
+  fs.mkdirSync(bubbleGlyphDir, { recursive: true });
+  await renderPng(buildIconSvg({ size: 168 }), path.join(bubbleGlyphDir, 'bubble_glyph.png'), 168);
 }
 
 if (require.main === module) {
