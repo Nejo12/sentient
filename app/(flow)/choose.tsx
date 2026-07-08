@@ -4,7 +4,7 @@ import * as Linking from 'expo-linking';
 import { useLinkingURL } from 'expo-linking';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Sparkles, X } from 'lucide-react-native';
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -100,9 +100,17 @@ export default function ChooseScreen() {
     setError,
   } = useSessionStore();
 
+  // Tracks whether the Android-bubble clipboard read has resolved, so the
+  // loading spinner below can settle even when the clipboard has no usable
+  // text (empty, whitespace-only, or non-text content).
+  const [androidClipboardChecked, setAndroidClipboardChecked] = useState(false);
+
   // Once a message has been captured, keep showing it even after
   // resetShareIntent() clears the live native context back to empty.
-  const isLoadingSharedMessage = isShareOpen && !capturedMessage && (!isReady || !resolvedContext);
+  const isLoadingSharedMessage =
+    isShareOpen &&
+    !capturedMessage &&
+    (!isReady || (!resolvedContext && !(isAndroidBubbleLaunch && androidClipboardChecked)));
 
   // expo-share-intent hands back a new resetShareIntent function identity on
   // every render (it isn't memoized upstream). Keeping it out of the effect's
@@ -177,6 +185,7 @@ export default function ChooseScreen() {
       if (trimmed) {
         setCapturedContext(trimmed, fallbackName, 'Android');
       }
+      setAndroidClipboardChecked(true);
     });
   }, [fallbackName, message, setCapturedContext, sourceApp]);
 
@@ -241,7 +250,7 @@ export default function ChooseScreen() {
           <Text style={styles.replyingTo}>{strings.choose.replyingTo(contactName || fallbackName)}</Text>
           <View style={styles.quoteCard}>
             {isLoadingSharedMessage ? (
-              <ActivityIndicator color={colors.clay} />
+              <ActivityIndicator color={colors.clay} testID="shared-message-loading" />
             ) : (
               <Text style={styles.quote}>{capturedMessage}</Text>
             )}

@@ -219,7 +219,7 @@ describe('choose screen', () => {
     });
     getStringAsync.mockResolvedValue('');
 
-    const { queryByText } = render(<ChooseScreen />);
+    const { queryByText, queryByTestId } = render(<ChooseScreen />);
 
     await waitFor(() => {
       expect(getStringAsync).toHaveBeenCalled();
@@ -227,5 +227,33 @@ describe('choose screen', () => {
 
     expect(useSessionStore.getState().capturedMessage).toBe('');
     expect(queryByText('Copied from a totally different app')).toBeNull();
+
+    // The loading spinner must resolve once the clipboard check completes,
+    // even though no usable text was found, otherwise the user is stuck on
+    // a spinner forever (see prior bug: capturedMessage never gets set, so
+    // isLoadingSharedMessage stayed true indefinitely).
+    await waitFor(() => {
+      expect(queryByTestId('shared-message-loading')).toBeNull();
+    });
+  });
+
+  it('does not get stuck loading when the clipboard resolves to whitespace-only text on the Android bubble route', async () => {
+    useLocalSearchParams.mockReturnValue({
+      sourceApp: 'Android',
+    });
+    getStringAsync.mockResolvedValue('   ');
+
+    const { queryByTestId, getByText } = render(<ChooseScreen />);
+
+    await waitFor(() => {
+      expect(getStringAsync).toHaveBeenCalled();
+    });
+
+    await waitFor(() => {
+      expect(queryByTestId('shared-message-loading')).toBeNull();
+    });
+
+    expect(useSessionStore.getState().capturedMessage).toBe('');
+    expect(getByText('What do you need?')).toBeTruthy();
   });
 });
