@@ -152,6 +152,10 @@ export const strings = {
     proPrice: '€3.99 / month',
     proActiveBody: "You're on Sentient Pro. Unlimited rewrites, every way to be understood.",
     proNoOfferings: "Sentient Pro isn't available to purchase right now — try again shortly.",
+    proLegalPrefix: 'By subscribing, you agree to our',
+    proTermsOfUse: 'Terms of Use',
+    proLegalConnector: 'and',
+    proPrivacyPolicy: 'Privacy Policy',
   },
 
   android: {

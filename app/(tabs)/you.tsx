@@ -2,6 +2,7 @@ import { router } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Linking,
   Modal,
   Pressable,
   ScrollView,
@@ -16,6 +17,7 @@ import { Check, ChevronRight, Heart, LogOut, Sparkles, User } from 'lucide-react
 import { Card } from '../../src/components/Card';
 import { Toggle } from '../../src/components/Toggle';
 import { strings } from '../../src/constants/strings';
+import { PRIVACY_POLICY_URL, TERMS_OF_USE_URL } from '../../src/constants/legal';
 import { UNDERSTANDING_OPTIONS } from '../../src/constants/understanding';
 import { isPro, presentPaywall, refreshProStatus } from '../../src/services/entitlements';
 import { getSupabaseClient, isSupabaseConfigured } from '../../src/services/supabase';
@@ -236,16 +238,37 @@ export default function YouScreen() {
               {isProUser ? strings.settings.proActiveBody : strings.settings.proBody}
             </Text>
             {isProUser ? null : (
-              <View style={styles.proFooter}>
-                <Pressable
-                  accessibilityRole="button"
-                  onPress={handleGoPro}
-                  style={({ pressed }) => [styles.proButton, pressed && styles.rowPressed]}
-                >
-                  <Text style={styles.proButtonLabel}>{strings.settings.proCta}</Text>
-                </Pressable>
-                <Text style={styles.proPrice}>{strings.settings.proPrice}</Text>
-              </View>
+              <>
+                <View style={styles.proFooter}>
+                  <Pressable
+                    accessibilityRole="button"
+                    onPress={handleGoPro}
+                    style={({ pressed }) => [styles.proButton, pressed && styles.rowPressed]}
+                  >
+                    <Text style={styles.proButtonLabel}>{strings.settings.proCta}</Text>
+                  </Pressable>
+                  <Text style={styles.proPrice}>{strings.settings.proPrice}</Text>
+                </View>
+                <Text style={styles.proLegal}>
+                  {strings.settings.proLegalPrefix}{' '}
+                  <Text
+                    accessibilityRole="link"
+                    onPress={() => void Linking.openURL(TERMS_OF_USE_URL)}
+                    style={styles.proLegalLink}
+                  >
+                    {strings.settings.proTermsOfUse}
+                  </Text>{' '}
+                  {strings.settings.proLegalConnector}{' '}
+                  <Text
+                    accessibilityRole="link"
+                    onPress={() => void Linking.openURL(PRIVACY_POLICY_URL)}
+                    style={styles.proLegalLink}
+                  >
+                    {strings.settings.proPrivacyPolicy}
+                  </Text>
+                  .
+                </Text>
+              </>
             )}
           </View>
         </View>
@@ -462,6 +485,16 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     fontSize: 13,
     lineHeight: 18,
+  },
+  proLegal: {
+    color: 'rgba(255, 255, 255, 0.7)',
+    fontFamily: fonts.sans,
+    fontSize: 11,
+    lineHeight: 16,
+  },
+  proLegalLink: {
+    color: colors.oxbloodFg,
+    textDecorationLine: 'underline',
   },
   modalBackdrop: {
     flex: 1,
