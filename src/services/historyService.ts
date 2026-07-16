@@ -2,9 +2,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import type { RewriteRecord, SaveRewriteInput } from '../types/history';
 import type { Intent, Understanding } from '../types/rewrite';
-import { getSupabaseClient, isSupabaseConfigured } from './supabase';
+import { getSupabaseClient } from './supabase';
 
-const LOCAL_STORAGE_KEY = 'sentient:dev-rewrites';
+const LOCAL_STORAGE_KEY = 'sentient:local-rewrites';
 
 const MOCK_REWRITES: RewriteRecord[] = [
   {
@@ -65,7 +65,7 @@ const MOCK_REWRITES: RewriteRecord[] = [
   },
 ];
 
-let devRewrites: RewriteRecord[] | null = null;
+let localRewrites: RewriteRecord[] | null = null;
 
 type RewriteRow = {
   id: string;
@@ -103,38 +103,36 @@ function mapRow(row: RewriteRow): RewriteRecord {
   };
 }
 
-async function loadDevRewrites(): Promise<RewriteRecord[]> {
-  if (devRewrites) {
-    return devRewrites;
+// The in-memory cache holds only genuinely persisted local rewrites — MOCK_REWRITES
+// is never written here, so it can never be appended to, persisted, or migrated
+// to an account by mistake. It exists purely as a display fallback in listRewrites().
+async function readPersistedLocalRewrites(): Promise<RewriteRecord[]> {
+  if (localRewrites) {
+    return localRewrites;
   }
 
-  if (__DEV__ && !isSupabaseConfigured()) {
-    try {
-      const stored = await AsyncStorage.getItem(LOCAL_STORAGE_KEY);
-      if (stored) {
-        devRewrites = JSON.parse(stored) as RewriteRecord[];
-        return devRewrites;
-      }
-    } catch {
-      // Fall back to seeded mock data.
+  try {
+    const stored = await AsyncStorage.getItem(LOCAL_STORAGE_KEY);
+    if (stored) {
+      localRewrites = JSON.parse(stored) as RewriteRecord[];
+      return localRewrites;
     }
-
-    devRewrites = [...MOCK_REWRITES];
-    return devRewrites;
+  } catch {
+    // Fall through to empty below.
   }
 
-  devRewrites = [];
-  return devRewrites;
+  localRewrites = [];
+  return localRewrites;
 }
 
-async function persistDevRewrites(): Promise<void> {
-  if (devRewrites && __DEV__) {
-    await AsyncStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(devRewrites));
+async function persistLocalRewrites(): Promise<void> {
+  if (localRewrites) {
+    await AsyncStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(localRewrites));
   }
 }
 
-async function appendDevRewrite(input: SaveRewriteInput): Promise<void> {
-  const list = await loadDevRewrites();
+async function appendLocalRewrite(input: SaveRewriteInput): Promise<void> {
+  const list = await readPersistedLocalRewrites();
   const record: RewriteRecord = {
     id: createId(),
     contactName: input.contactName,
@@ -146,8 +144,8 @@ async function appendDevRewrite(input: SaveRewriteInput): Promise<void> {
     createdAt: new Date().toISOString(),
   };
 
-  devRewrites = [record, ...list.filter((item) => item.id !== record.id)];
-  await persistDevRewrites();
+  localRewrites = [record, ...list.filter((item) => item.id !== record.id)];
+  await persistLocalRewrites();
 }
 
 export function getRewriteTitle(record: RewriteRecord): string {
@@ -198,23 +196,28 @@ export async function listRewrites(): Promise<RewriteRecord[]> {
       data: { user },
     } = await supabase.auth.getUser();
 
-    if (!user) {
-      return __DEV__ ? loadDevRewrites() : [];
+    if (user) {
+      const { data, error } = await supabase
+        .from('rewrites')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        throw error;
+      }
+
+      return (data as RewriteRow[] | null)?.map(mapRow) ?? [];
     }
-
-    const { data, error } = await supabase
-      .from('rewrites')
-      .select('*')
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      throw error;
-    }
-
-    return (data as RewriteRow[] | null)?.map(mapRow) ?? [];
   }
 
-  return loadDevRewrites();
+  const persisted = await readPersistedLocalRewrites();
+  if (persisted.length > 0 || !__DEV__) {
+    return persisted;
+  }
+
+  // Nothing saved locally yet in dev — show sample data for preview only.
+  // Never cached or persisted, so it can't be appended to or migrated later.
+  return MOCK_REWRITES;
 }
 
 export async function saveRewrite(input: SaveRewriteInput): Promise<void> {
@@ -225,35 +228,69 @@ export async function saveRewrite(input: SaveRewriteInput): Promise<void> {
       data: { user },
     } = await supabase.auth.getUser();
 
-    if (!user) {
-      if (__DEV__) {
-        await appendDevRewrite(input);
+    if (user) {
+      const { error } = await supabase.from('rewrites').insert({
+        user_id: user.id,
+        contact_name: input.contactName || null,
+        source_app: input.sourceApp || null,
+        intent: input.intent,
+        understanding: input.understanding,
+        snippet: makeSnippet(input.fullText),
+        full_text: input.fullText,
+      });
+
+      if (error) {
+        throw error;
       }
+
       return;
     }
+  }
 
-    const { error } = await supabase.from('rewrites').insert({
-      user_id: user.id,
-      contact_name: input.contactName || null,
-      source_app: input.sourceApp || null,
-      intent: input.intent,
-      understanding: input.understanding,
-      snippet: makeSnippet(input.fullText),
-      full_text: input.fullText,
-    });
+  await appendLocalRewrite(input);
+}
 
-    if (error) {
-      throw error;
-    }
-
+/** Upload any locally-stored rewrites to the now-authenticated account, then clear the local copy. */
+export async function migrateLocalRewritesToAccount(): Promise<void> {
+  const supabase = getSupabaseClient();
+  if (!supabase) {
     return;
   }
 
-  if (__DEV__) {
-    await appendDevRewrite(input);
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return;
   }
+
+  const local = await readPersistedLocalRewrites();
+  if (local.length === 0) {
+    return;
+  }
+
+  const { error } = await supabase.from('rewrites').insert(
+    local.map((record) => ({
+      user_id: user.id,
+      contact_name: record.contactName || null,
+      source_app: record.sourceApp || null,
+      intent: record.intent,
+      understanding: record.understanding,
+      snippet: record.snippet,
+      full_text: record.fullText,
+      created_at: record.createdAt,
+    })),
+  );
+
+  if (error) {
+    throw error;
+  }
+
+  localRewrites = [];
+  await AsyncStorage.removeItem(LOCAL_STORAGE_KEY);
 }
 
 export function resetHistoryForTests(): void {
-  devRewrites = null;
+  localRewrites = null;
 }

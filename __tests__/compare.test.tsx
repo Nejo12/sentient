@@ -1,9 +1,16 @@
 import { fireEvent, render, waitFor } from '@testing-library/react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import CompareScreen from '../app/(flow)/compare';
+import { listRewrites, resetHistoryForTests } from '../src/services/historyService';
 import { fetchRewrites } from '../src/services/rewriteApi';
 import { useSessionStore } from '../src/store/sessionStore';
+import { useSettingsStore } from '../src/store/settingsStore';
 import type { RewriteOption } from '../src/types/rewrite';
+
+jest.mock('@react-native-async-storage/async-storage', () =>
+  require('@react-native-async-storage/async-storage/jest/async-storage-mock'),
+);
 
 jest.mock('expo-router', () => ({
   router: { push: jest.fn(), back: jest.fn(), replace: jest.fn(), canGoBack: jest.fn() },
@@ -51,8 +58,11 @@ const rewriteOptions: RewriteOption[] = [
 ];
 
 describe('compare screen', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     useSessionStore.getState().reset();
+    useSettingsStore.getState().resetForTests();
+    resetHistoryForTests();
+    await AsyncStorage.clear();
     jest.clearAllMocks();
     useSessionStore.setState({
       capturedMessage: "So you're just cancelling again?",
@@ -106,6 +116,37 @@ describe('compare screen', () => {
 
     expect(useSessionStore.getState().chosenReply).toBe(rewriteOptions[1].text);
     expect(router.push).toHaveBeenCalledWith('/(flow)/send-back');
+  });
+
+  it('saves to history when copying directly from Compare, without visiting Send Back', async () => {
+    const { getAllByText } = render(<CompareScreen />);
+
+    fireEvent.press(getAllByText('Copy')[0]);
+
+    await waitFor(async () => {
+      const records = await listRewrites();
+      expect(records[0]?.fullText).toBe(rewriteOptions[0].text);
+    });
+
+    const records = await listRewrites();
+    expect(records[0]?.contactName).toBe('Sam');
+    expect(records[0]?.sourceApp).toBe('WhatsApp');
+  });
+
+  it('does not save to history when the save-history setting is off', async () => {
+    useSettingsStore.setState({ saveHistory: false });
+
+    const { getAllByText } = render(<CompareScreen />);
+    fireEvent.press(getAllByText('Copy')[0]);
+
+    await waitFor(() => {
+      expect(Clipboard.setStringAsync).toHaveBeenCalledWith(rewriteOptions[0].text);
+    });
+
+    // Persisted storage stays empty (listRewrites() may still show __DEV__
+    // sample data as a preview fallback — that's unrelated to this copy).
+    const records = await listRewrites();
+    expect(records.some((record) => record.fullText === rewriteOptions[0].text)).toBe(false);
   });
 
   it('regenerates by calling rewrite API with current params', async () => {

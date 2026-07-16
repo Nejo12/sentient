@@ -14,8 +14,10 @@ import {
   canRewrite,
   incrementRewriteCount,
 } from '../../src/services/entitlements';
+import { saveRewrite } from '../../src/services/historyService';
 import { fetchRewrites } from '../../src/services/rewriteApi';
 import { useSessionStore } from '../../src/store/sessionStore';
+import { useSettingsStore } from '../../src/store/settingsStore';
 import { colors, radii, spacing } from '../../src/theme/tokens';
 import { fonts } from '../../src/theme/typography';
 import { goBackOrHome } from '../../src/utils/navigation';
@@ -26,6 +28,7 @@ export default function CompareScreen() {
   const {
     capturedMessage,
     contactName,
+    sourceApp,
     roughDraft,
     intent,
     understanding,
@@ -38,6 +41,7 @@ export default function CompareScreen() {
     setError,
     setChosenReply,
   } = useSessionStore();
+  const saveHistory = useSettingsStore((state) => state.saveHistory);
 
   const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
   const copyFeedbackTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -96,7 +100,7 @@ export default function CompareScreen() {
     }
 
     await incrementRewriteCount();
-    setResults(response.options, response.perspective ?? null);
+    setResults(response.options, response.perspective ?? undefined);
     setLoading(false);
   };
 
@@ -111,6 +115,19 @@ export default function CompareScreen() {
     copyFeedbackTimeout.current = setTimeout(() => {
       setCopyFeedback(null);
     }, COPY_FEEDBACK_MS);
+
+    // Copying here is the same "I used this reply" signal as copying from
+    // the Send Back screen — it must save to history too, not just that
+    // second screen's copy button.
+    if (saveHistory && intent) {
+      await saveRewrite({
+        contactName,
+        sourceApp,
+        intent,
+        understanding,
+        fullText: text,
+      });
+    }
   };
 
   const onSendBack = (text: string) => {

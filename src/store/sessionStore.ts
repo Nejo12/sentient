@@ -23,6 +23,7 @@ interface SessionActions {
     contactName: string,
     sourceApp: string,
   ) => void;
+  setCapturedMessage: (message: string) => void;
   setRoughDraft: (text: string) => void;
   setIntent: (intent: Intent) => void;
   setUnderstanding: (understanding: Understanding) => void;
@@ -54,6 +55,7 @@ export const useSessionStore = create<SessionStore>((set) => ({
   ...initialState,
   setCapturedContext: (message, contactName, sourceApp) =>
     set({ capturedMessage: message, contactName, sourceApp }),
+  setCapturedMessage: (message) => set({ capturedMessage: message }),
   setRoughDraft: (text) => set({ roughDraft: text }),
   setIntent: (intent) =>
     set({

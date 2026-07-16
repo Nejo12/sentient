@@ -14,6 +14,9 @@ export const strings = {
     understandingEyebrow: 'How do you want to be understood?',
     roughDraftLabel: 'Your rough draft — optional',
     replyingTo: (name: string) => `You're replying to ${name}`,
+    pasteMessageLabel: 'Paste the message you want to improve',
+    pasteMessagePlaceholder: 'Paste or type the message here',
+    pasteMessageRequired: 'Paste or type a message first.',
   },
 
   compare: {
@@ -66,6 +69,31 @@ export const strings = {
       'Sentient is not connected yet. Add your Supabase URL and key to .env and restart the app.',
     signInError: "Couldn't sign you in — check your email and password.",
     signUpError: "Couldn't create your account — try a different email or password.",
+    emailNotConfirmed: 'Confirm your email first — check your inbox for the link we sent you.',
+    confirmEmailTitle: 'Check your email',
+    confirmEmailBody:
+      "We've sent a confirmation link to your email. Follow it, then come back and sign in.",
+    signedInTitle: "You're signed in",
+    signedInBody: (email: string) => `Signed in as ${email}. Your history will sync from here.`,
+    syncBenefit: 'Sign in to keep your rewrite history backed up and available on every device.',
+    forgotPassword: 'Forgot password?',
+    backToSignIn: 'Back to sign in',
+    resetTitle: 'Reset password',
+    resetBody: "Enter your email and we'll send you a link to reset your password.",
+    resetEmailRequired: 'Enter your email first.',
+    resetSendButton: 'Send reset link',
+    resetSentConfirmation:
+      "If there's an account for that email, we've sent a link to reset your password.",
+    resetLinkInvalid: 'This reset link is no longer valid — request a new one.',
+    resetPasswordBody: 'Choose a new password for your account.',
+    resetNewPasswordLabel: 'New password',
+    resetConfirmPasswordLabel: 'Confirm password',
+    resetPasswordSubmit: 'Save new password',
+    resetPasswordTooShort: 'Password must be at least 8 characters.',
+    resetPasswordMismatch: "Passwords don't match.",
+    resetPasswordError: "Couldn't reset your password — try requesting a new link.",
+    resetPasswordSuccess: 'Your password has been reset.',
+    resetContinue: 'Continue',
   },
 
   capture: {
@@ -106,6 +134,11 @@ export const strings = {
 
   settings: {
     title: 'Settings',
+    account: 'Account',
+    accountSignedIn: 'Signed in',
+    accountSignedOut: 'Sign in to sync your history',
+    accountSyncBenefit: 'Keep your rewrites backed up and available on every device.',
+    signOut: 'Sign out',
     defaults: 'Defaults',
     defaultUnderstanding: 'Default understanding',
     beforeAnythingSends: 'Before anything sends',
@@ -118,6 +151,7 @@ export const strings = {
     proCta: 'Go Pro',
     proPrice: '€3.99 / month',
     proActiveBody: "You're on Sentient Pro. Unlimited rewrites, every way to be understood.",
+    proNoOfferings: "Sentient Pro isn't available to purchase right now — try again shortly.",
   },
 
   android: {

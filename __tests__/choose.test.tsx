@@ -281,4 +281,57 @@ describe('choose screen', () => {
     expect(router.back).not.toHaveBeenCalled();
     expect(router.replace).toHaveBeenCalledWith('/(tabs)');
   });
+
+  describe('manual entry (opened with no share source)', () => {
+    beforeEach(() => {
+      // No route params, no native share intent, no Android bubble launch —
+      // exactly how the Home tab's "Improve a message" button opens this
+      // screen now that it no longer injects demo data.
+      useLocalSearchParams.mockReturnValue({});
+    });
+
+    it('shows an editable paste field instead of demo content', () => {
+      const { getByPlaceholderText, queryByText } = render(<ChooseScreen />);
+
+      expect(
+        getByPlaceholderText('Paste or type the message here'),
+      ).toBeTruthy();
+      expect(queryByText("So you're just cancelling again?")).toBeNull();
+      expect(queryByText('Sam')).toBeNull();
+    });
+
+    it('blocks submitting with no message typed', async () => {
+      const { getByText } = render(<ChooseScreen />);
+
+      fireEvent.press(getByText('What am I missing?'));
+
+      await waitFor(() => {
+        expect(getByText('Paste or type a message first.')).toBeTruthy();
+      });
+      expect(fetchRewrites).not.toHaveBeenCalled();
+    });
+
+    it('submits the manually typed message', async () => {
+      (fetchRewrites as jest.Mock).mockResolvedValue({
+        success: true,
+        perspective: null,
+        options: rewriteOptions,
+      });
+
+      const { getByPlaceholderText, getByText } = render(<ChooseScreen />);
+
+      fireEvent.changeText(
+        getByPlaceholderText('Paste or type the message here'),
+        'Can we push our call to Thursday?',
+      );
+      fireEvent.press(getByText('What am I missing?'));
+
+      await waitFor(() => {
+        expect(fetchRewrites).toHaveBeenCalledWith(
+          expect.objectContaining({ capturedMessage: 'Can we push our call to Thursday?' }),
+        );
+      });
+      expect(router.push).toHaveBeenCalledWith('/(flow)/compare');
+    });
+  });
 });

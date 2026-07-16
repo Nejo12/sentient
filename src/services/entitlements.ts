@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Alert } from 'react-native';
+import { Alert, Platform } from 'react-native';
 import Purchases, { type CustomerInfo } from 'react-native-purchases';
 
 import { strings } from '../constants/strings';
@@ -20,6 +20,12 @@ let configured = false;
 let proStatus = false;
 
 function getRevenueCatApiKey(): string | undefined {
+  // RevenueCat's native purchase flow has no web equivalent configured for this
+  // app — treat web as unentitled rather than trying (and failing) to configure it.
+  if (Platform.OS === 'web') {
+    return undefined;
+  }
+
   const apiKey = process.env.EXPO_PUBLIC_REVENUECAT_API_KEY?.trim();
   return apiKey || undefined;
 }
@@ -38,8 +44,14 @@ async function ensureConfigured(): Promise<void> {
     return;
   }
 
-  Purchases.configure({ apiKey });
-  configured = true;
+  try {
+    Purchases.configure({ apiKey });
+    configured = true;
+  } catch (error) {
+    console.warn('[entitlements] ensureConfigured: Purchases.configure failed', error);
+    return;
+  }
+
   await refreshProStatus();
 }
 
@@ -120,6 +132,7 @@ export async function incrementRewriteCount(): Promise<void> {
 export async function presentPaywall(): Promise<void> {
   const apiKey = getRevenueCatApiKey();
   if (!apiKey) {
+    console.warn('[entitlements] presentPaywall: no RevenueCat API key configured');
     Alert.alert(strings.settings.proTitle, strings.settings.proBody);
     return;
   }
@@ -130,14 +143,24 @@ export async function presentPaywall(): Promise<void> {
     const offerings = await Purchases.getOfferings();
     const packageToBuy = offerings.current?.availablePackages[0];
     if (!packageToBuy) {
-      Alert.alert(strings.settings.proTitle, strings.settings.proBody);
+      console.warn(
+        '[entitlements] presentPaywall: no current offering or packages returned by RevenueCat',
+      );
+      Alert.alert(strings.settings.proTitle, strings.settings.proNoOfferings);
       return;
     }
 
     const { customerInfo } = await Purchases.purchasePackage(packageToBuy);
     proStatus = hasActiveProEntitlement(customerInfo);
-  } catch {
-    Alert.alert(strings.settings.proTitle, strings.settings.proBody);
+  } catch (error) {
+    const isUserCancelled =
+      typeof error === 'object' && error !== null && 'userCancelled' in error &&
+      (error as { userCancelled?: boolean }).userCancelled === true;
+
+    if (!isUserCancelled) {
+      console.warn('[entitlements] presentPaywall: purchase failed', error);
+      Alert.alert(strings.settings.proTitle, strings.settings.proBody);
+    }
   }
 }
 

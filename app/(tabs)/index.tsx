@@ -5,21 +5,16 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { BrandMark } from '../../src/components/BrandMark';
 import { Button } from '../../src/components/Button';
 import { strings } from '../../src/constants/strings';
+import { useSessionStore } from '../../src/store/sessionStore';
 import { colors, spacing } from '../../src/theme/tokens';
 import { fonts } from '../../src/theme/typography';
 
-const DEV_CHOOSE_PARAMS = {
-  pathname: '/(flow)/choose' as const,
-  params: {
-    message: "So you're just cancelling again? Cool. Guess I'll figure it out myself.",
-    name: 'Sam',
-    app: 'WhatsApp',
-  },
-};
-
 export default function HomeScreen() {
   const openChoose = () => {
-    router.push(DEV_CHOOSE_PARAMS);
+    // Start from a clean slate so a leftover message/draft from a previous
+    // session doesn't appear to pre-fill this manual-entry flow.
+    useSessionStore.getState().reset();
+    router.push('/(flow)/choose');
   };
 
   return (

@@ -1,5 +1,7 @@
+import { router } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  ActivityIndicator,
   Modal,
   Pressable,
   ScrollView,
@@ -9,13 +11,14 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
-import { Check, ChevronRight, Heart, Sparkles } from 'lucide-react-native';
+import { Check, ChevronRight, Heart, LogOut, Sparkles, User } from 'lucide-react-native';
 
 import { Card } from '../../src/components/Card';
 import { Toggle } from '../../src/components/Toggle';
 import { strings } from '../../src/constants/strings';
 import { UNDERSTANDING_OPTIONS } from '../../src/constants/understanding';
 import { isPro, presentPaywall, refreshProStatus } from '../../src/services/entitlements';
+import { getSupabaseClient, isSupabaseConfigured } from '../../src/services/supabase';
 import { useSettingsStore } from '../../src/store/settingsStore';
 import { colors, radii, shadows, spacing } from '../../src/theme/tokens';
 import { fonts } from '../../src/theme/typography';
@@ -48,6 +51,8 @@ export default function YouScreen() {
 
   const [pickerVisible, setPickerVisible] = useState(false);
   const [isProUser, setIsProUser] = useState(isPro());
+  const [accountEmail, setAccountEmail] = useState<string | null>(null);
+  const [signingOut, setSigningOut] = useState(false);
 
   useEffect(() => {
     void hydrate();
@@ -55,6 +60,37 @@ export default function YouScreen() {
 
   useEffect(() => {
     void refreshProStatus().then(() => setIsProUser(isPro()));
+  }, []);
+
+  useEffect(() => {
+    const supabase = getSupabaseClient();
+    if (!supabase) {
+      return;
+    }
+
+    supabase.auth.getUser().then(({ data }) => {
+      setAccountEmail(data.user?.email ?? null);
+    });
+
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setAccountEmail(session?.user.email ?? null);
+    });
+
+    return () => listener.subscription.unsubscribe();
+  }, []);
+
+  const handleSignIn = useCallback(() => {
+    router.push('/auth/sign-in');
+  }, []);
+
+  const handleSignOut = useCallback(async () => {
+    const supabase = getSupabaseClient();
+    if (!supabase) {
+      return;
+    }
+    setSigningOut(true);
+    await supabase.auth.signOut();
+    setSigningOut(false);
   }, []);
 
   const selectedLabel = useMemo(
@@ -83,6 +119,59 @@ export default function YouScreen() {
         showsVerticalScrollIndicator={false}
       >
         <Text style={styles.title}>{strings.settings.title}</Text>
+
+        {isSupabaseConfigured() ? (
+          <>
+            <Text style={styles.sectionHeading}>{strings.settings.account}</Text>
+            <Card variant="panel" style={styles.card}>
+              {accountEmail ? (
+                <View style={styles.settingsRow}>
+                  <View style={styles.iconTile}>
+                    <User color={colors.oxblood} size={18} strokeWidth={2} />
+                    <View style={styles.signedInDot}>
+                      <Check color={colors.oxbloodFg} size={9} strokeWidth={3} />
+                    </View>
+                  </View>
+                  <View style={styles.rowCopy}>
+                    <Text style={styles.rowTitle}>{accountEmail}</Text>
+                    <Text style={styles.rowSubtitle}>{strings.settings.accountSignedIn}</Text>
+                  </View>
+                  <Pressable
+                    accessibilityLabel={strings.settings.signOut}
+                    accessibilityRole="button"
+                    disabled={signingOut}
+                    onPress={() => {
+                      void handleSignOut();
+                    }}
+                    style={({ pressed }) => [styles.signOutButton, pressed && styles.rowPressed]}
+                  >
+                    {signingOut ? (
+                      <ActivityIndicator color={colors.ink55} size="small" />
+                    ) : (
+                      <LogOut color={colors.ink55} size={18} strokeWidth={2} />
+                    )}
+                  </Pressable>
+                </View>
+              ) : (
+                <Pressable
+                  accessibilityLabel={strings.settings.accountSignedOut}
+                  accessibilityRole="button"
+                  onPress={handleSignIn}
+                  style={({ pressed }) => [styles.settingsRow, pressed && styles.rowPressed]}
+                >
+                  <View style={styles.iconTile}>
+                    <User color={colors.oxblood} size={18} strokeWidth={2} />
+                  </View>
+                  <View style={styles.rowCopy}>
+                    <Text style={styles.rowTitle}>{strings.settings.accountSignedOut}</Text>
+                    <Text style={styles.rowSubtitle}>{strings.settings.accountSyncBenefit}</Text>
+                  </View>
+                  <ChevronRight color={colors.ink40} size={18} strokeWidth={1.9} />
+                </Pressable>
+              )}
+            </Card>
+          </>
+        ) : null}
 
         <Text style={styles.sectionHeading}>{strings.settings.defaults}</Text>
         <Card variant="panel" style={styles.card}>
@@ -255,6 +344,26 @@ const styles = StyleSheet.create({
     height: 34,
     borderRadius: radii.sm,
     backgroundColor: colors.soft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  signedInDot: {
+    position: 'absolute',
+    bottom: -2,
+    right: -2,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: colors.olive,
+    borderWidth: 1.5,
+    borderColor: colors.paperStrong,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  signOutButton: {
+    width: 34,
+    height: 34,
+    borderRadius: radii.sm,
     alignItems: 'center',
     justifyContent: 'center',
   },

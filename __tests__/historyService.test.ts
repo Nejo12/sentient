@@ -95,4 +95,76 @@ describe('historyService', () => {
     expect(records[0]?.contactName).toBe('Alex');
     expect(records[0]?.snippet).toContain('Thanks for checking in');
   });
+
+  it('does not migrate seeded dev mock data on sign-in', async () => {
+    const insertMock = jest.fn().mockResolvedValue({ error: null });
+    jest.doMock('../src/services/supabase', () => ({
+      getSupabaseClient: () => ({
+        auth: {
+          getUser: jest.fn().mockResolvedValue({ data: { user: { id: 'user-1' } } }),
+        },
+        from: jest.fn().mockReturnValue({ insert: insertMock }),
+      }),
+    }));
+    jest.resetModules();
+
+    const {
+      migrateLocalRewritesToAccount: migrateFresh,
+      resetHistoryForTests: resetHistory,
+    } = require('../src/services/historyService');
+
+    resetHistory();
+    await migrateFresh();
+
+    expect(insertMock).not.toHaveBeenCalled();
+
+    jest.dontMock('../src/services/supabase');
+  });
+
+  it('migrates genuinely saved local rewrites on sign-in', async () => {
+    // A mutable "current client" lets the same historyService instance see
+    // signed-out (null) then signed-in (authenticated) states, without an
+    // in-test module reset that would also wipe the AsyncStorage mock.
+    let currentClient: unknown = null;
+    const insertMock = jest.fn().mockResolvedValue({ error: null });
+
+    jest.doMock('../src/services/supabase', () => ({
+      getSupabaseClient: () => currentClient,
+    }));
+    jest.resetModules();
+
+    const {
+      saveRewrite: saveRewriteFresh,
+      migrateLocalRewritesToAccount: migrateFresh,
+      resetHistoryForTests: resetHistory,
+    } = require('../src/services/historyService');
+
+    resetHistory();
+
+    // Signed out: saves locally.
+    await saveRewriteFresh({
+      contactName: 'Alex',
+      sourceApp: 'WhatsApp',
+      intent: 'do',
+      understanding: 'calm',
+      fullText: 'A real saved reply.',
+    });
+
+    // Now signed in: migration should pick up the local save above.
+    currentClient = {
+      auth: {
+        getUser: jest.fn().mockResolvedValue({ data: { user: { id: 'user-1' } } }),
+      },
+      from: jest.fn().mockReturnValue({ insert: insertMock }),
+    };
+
+    await migrateFresh();
+
+    expect(insertMock).toHaveBeenCalledTimes(1);
+    const insertedRows = insertMock.mock.calls[0][0];
+    expect(insertedRows).toHaveLength(1);
+    expect(insertedRows[0].contact_name).toBe('Alex');
+
+    jest.dontMock('../src/services/supabase');
+  });
 });

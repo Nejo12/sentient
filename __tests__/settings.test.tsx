@@ -9,6 +9,10 @@ import { strings } from '../src/constants/strings';
 import { isPro, presentPaywall } from '../src/services/entitlements';
 import { useSettingsStore } from '../src/store/settingsStore';
 
+jest.mock('expo-router', () => ({
+  router: { replace: jest.fn(), push: jest.fn() },
+}));
+
 jest.mock('../src/services/settingsService', () => ({
   fetchRemoteSettings: jest.fn().mockResolvedValue(null),
   syncSettingsToRemote: jest.fn().mockResolvedValue(undefined),

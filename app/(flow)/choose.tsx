@@ -93,6 +93,7 @@ export default function ChooseScreen() {
     loading,
     error,
     setCapturedContext,
+    setCapturedMessage,
     setRoughDraft,
     setIntent,
     setUnderstanding,
@@ -105,6 +106,12 @@ export default function ChooseScreen() {
   // loading spinner below can settle even when the clipboard has no usable
   // text (empty, whitespace-only, or non-text content).
   const [androidClipboardChecked, setAndroidClipboardChecked] = useState(false);
+
+  // True once a real message has arrived from an external source (share
+  // intent, route params, deep link, or Android clipboard). When false, the
+  // captured message is editable so this screen also works as a standalone
+  // "paste a message" entry point, not just a share-flow destination.
+  const [receivedFromShare, setReceivedFromShare] = useState(false);
 
   // Once a message has been captured, keep showing it even after
   // resetShareIntent() clears the live native context back to empty.
@@ -133,6 +140,7 @@ export default function ChooseScreen() {
       fallbackName,
       resolvedContext.sourceApp || fallbackSourceApp,
     );
+    Promise.resolve().then(() => setReceivedFromShare(true));
 
     if (hasShareIntent) {
       resetShareIntentRef.current();
@@ -156,6 +164,7 @@ export default function ChooseScreen() {
         fallbackName,
         parsedIntent.sourceApp || fallbackSourceApp,
       );
+      setReceivedFromShare(true);
     };
 
     void Linking.getInitialURL().then((initialUrl) => {
@@ -185,6 +194,7 @@ export default function ChooseScreen() {
       const trimmed = clipText?.trim();
       if (trimmed) {
         setCapturedContext(trimmed, fallbackName, 'Android');
+        setReceivedFromShare(true);
       }
       setAndroidClipboardChecked(true);
     });
@@ -192,6 +202,12 @@ export default function ChooseScreen() {
 
   const submit = async (nextIntent: Intent, nextUnderstanding?: Understanding) => {
     setError(null);
+
+    if (!capturedMessage.trim()) {
+      setError(strings.choose.pasteMessageRequired);
+      return;
+    }
+
     setLoading(true);
 
     if (!(await canRewrite())) {
@@ -215,7 +231,7 @@ export default function ChooseScreen() {
     }
 
     await incrementRewriteCount();
-    setResults(response.options, response.perspective ?? null);
+    setResults(response.options, response.perspective ?? undefined);
     setLoading(false);
     router.push('/(flow)/compare');
   };
@@ -248,14 +264,29 @@ export default function ChooseScreen() {
         </View>
 
         <View style={styles.block}>
-          <Text style={styles.replyingTo}>{strings.choose.replyingTo(contactName || fallbackName)}</Text>
-          <View style={styles.quoteCard}>
-            {isLoadingSharedMessage ? (
-              <ActivityIndicator color={colors.clay} testID="shared-message-loading" />
-            ) : (
-              <Text style={styles.quote}>{capturedMessage}</Text>
-            )}
-          </View>
+          <Text style={styles.replyingTo}>
+            {receivedFromShare
+              ? strings.choose.replyingTo(contactName || fallbackName)
+              : strings.choose.pasteMessageLabel}
+          </Text>
+          {receivedFromShare || isLoadingSharedMessage ? (
+            <View style={styles.quoteCard}>
+              {isLoadingSharedMessage ? (
+                <ActivityIndicator color={colors.clay} testID="shared-message-loading" />
+              ) : (
+                <Text style={styles.quote}>{capturedMessage}</Text>
+              )}
+            </View>
+          ) : (
+            <Input
+              editable={!loading}
+              multiline
+              onChangeText={setCapturedMessage}
+              placeholder={strings.choose.pasteMessagePlaceholder}
+              style={styles.capturedMessageInput}
+              value={capturedMessage}
+            />
+          )}
         </View>
 
         <View style={styles.block}>
@@ -392,6 +423,9 @@ const styles = StyleSheet.create({
     letterSpacing: 0.35,
   },
   roughDraftInput: {
+    minHeight: 84,
+  },
+  capturedMessageInput: {
     minHeight: 84,
   },
   intentRow: {
