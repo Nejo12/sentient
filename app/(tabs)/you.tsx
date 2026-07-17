@@ -2,6 +2,7 @@ import { router } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Linking,
   Modal,
   Pressable,
@@ -19,6 +20,7 @@ import { Toggle } from '../../src/components/Toggle';
 import { strings } from '../../src/constants/strings';
 import { PRIVACY_POLICY_URL, TERMS_OF_USE_URL } from '../../src/constants/legal';
 import { UNDERSTANDING_OPTIONS } from '../../src/constants/understanding';
+import { deleteAccount } from '../../src/services/accountService';
 import { isPro, presentPaywall, refreshProStatus } from '../../src/services/entitlements';
 import { getSupabaseClient, isSupabaseConfigured } from '../../src/services/supabase';
 import { useSettingsStore } from '../../src/store/settingsStore';
@@ -55,6 +57,7 @@ export default function YouScreen() {
   const [isProUser, setIsProUser] = useState(isPro());
   const [accountEmail, setAccountEmail] = useState<string | null>(null);
   const [signingOut, setSigningOut] = useState(false);
+  const [deletingAccount, setDeletingAccount] = useState(false);
 
   useEffect(() => {
     void hydrate();
@@ -93,6 +96,30 @@ export default function YouScreen() {
     setSigningOut(true);
     await supabase.auth.signOut();
     setSigningOut(false);
+  }, []);
+
+  const handleDeleteAccount = useCallback(() => {
+    Alert.alert(
+      strings.settings.deleteAccountConfirmTitle,
+      strings.settings.deleteAccountConfirmBody,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: strings.settings.deleteAccountConfirmButton,
+          style: 'destructive',
+          onPress: () => {
+            void (async () => {
+              setDeletingAccount(true);
+              const result = await deleteAccount();
+              setDeletingAccount(false);
+              if (!result.success) {
+                Alert.alert(strings.settings.deleteAccountError, undefined);
+              }
+            })();
+          },
+        },
+      ],
+    );
   }, []);
 
   const selectedLabel = useMemo(
@@ -154,7 +181,29 @@ export default function YouScreen() {
                     )}
                   </Pressable>
                 </View>
-              ) : (
+              ) : null}
+              {accountEmail ? (
+                <>
+                  <View style={styles.divider} />
+                  <Pressable
+                    accessibilityLabel={strings.settings.deleteAccount}
+                    accessibilityRole="button"
+                    disabled={deletingAccount}
+                    onPress={handleDeleteAccount}
+                    style={({ pressed }) => [styles.settingsRow, pressed && styles.rowPressed]}
+                  >
+                    <View style={styles.rowCopy}>
+                      <Text style={styles.deleteAccountLabel}>
+                        {strings.settings.deleteAccount}
+                      </Text>
+                    </View>
+                    {deletingAccount ? (
+                      <ActivityIndicator color={colors.oxblood} size="small" />
+                    ) : null}
+                  </Pressable>
+                </>
+              ) : null}
+              {!accountEmail && (
                 <Pressable
                   accessibilityLabel={strings.settings.accountSignedOut}
                   accessibilityRole="button"
@@ -395,6 +444,13 @@ const styles = StyleSheet.create({
   },
   rowTitle: {
     color: colors.ink,
+    fontFamily: fonts.sansSemiBold,
+    fontWeight: '600',
+    fontSize: 15,
+    lineHeight: 20,
+  },
+  deleteAccountLabel: {
+    color: colors.oxblood,
     fontFamily: fonts.sansSemiBold,
     fontWeight: '600',
     fontSize: 15,

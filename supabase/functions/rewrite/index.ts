@@ -3,6 +3,18 @@ import { OpenAI } from 'https://esm.sh/openai@4';
 
 const BLOCKED = 'Something here needs another look.';
 
+// Sentient rewrites tense, hostile messages by design — ordinary venting trips
+// OpenAI's broader categories (harassment, hate, self-harm) constantly, so we
+// only block on categories that indicate genuine danger, not heated language.
+const SEVERE_MODERATION_CATEGORIES = [
+  'sexual/minors',
+  'self-harm/intent',
+  'self-harm/instructions',
+  'violence/graphic',
+  'harassment/threatening',
+  'hate/threatening',
+] as const;
+
 const corsHeaders: Record<string, string> = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers':
@@ -181,7 +193,11 @@ serve(async (req) => {
       .join('\n');
 
     const mod = await openai.moderations.create({ input: moderationInput });
-    if (mod.results[0]?.flagged) {
+    const categories = mod.results[0]?.categories as Record<string, boolean> | undefined;
+    const severelyFlagged = SEVERE_MODERATION_CATEGORIES.some(
+      (category) => categories?.[category],
+    );
+    if (severelyFlagged) {
       return jsonResponse({ blocked: true, message: BLOCKED }, 422);
     }
 

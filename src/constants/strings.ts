@@ -139,6 +139,12 @@ export const strings = {
     accountSignedOut: 'Sign in to sync your history',
     accountSyncBenefit: 'Keep your rewrites backed up and available on every device.',
     signOut: 'Sign out',
+    deleteAccount: 'Delete account',
+    deleteAccountConfirmTitle: 'Delete your account?',
+    deleteAccountConfirmBody:
+      "This permanently deletes your account and every rewrite you've saved. This can't be undone.",
+    deleteAccountConfirmButton: 'Delete',
+    deleteAccountError: "Couldn't delete your account — try again.",
     defaults: 'Defaults',
     defaultUnderstanding: 'Default understanding',
     beforeAnythingSends: 'Before anything sends',
