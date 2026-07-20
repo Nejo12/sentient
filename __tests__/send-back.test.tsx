@@ -7,10 +7,10 @@ import { Alert, Linking } from 'react-native';
 
 import SendBackScreen from '../app/(flow)/send-back';
 import { strings } from '../src/constants/strings';
+import { saveRewrite } from '../src/services/historyService';
 import { useSessionStore } from '../src/store/sessionStore';
 import { useSettingsStore } from '../src/store/settingsStore';
 import { copyToClipboard } from '../src/utils/clipboard';
-import { saveRewrite } from '../src/services/historyService';
 
 jest.mock('../src/services/settingsService', () => ({
   fetchRemoteSettings: jest.fn().mockResolvedValue(null),
@@ -51,7 +51,7 @@ describe('send-back screen', () => {
     router.canGoBack.mockReturnValue(true);
   });
 
-  it('copies and opens WhatsApp from primary action', async () => {
+  it('copies and opens WhatsApp from the primary action', async () => {
     jest.spyOn(Linking, 'canOpenURL').mockResolvedValueOnce(true);
     const openURLSpy = jest.spyOn(Linking, 'openURL').mockResolvedValueOnce();
     const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
@@ -60,9 +60,7 @@ describe('send-back screen', () => {
     fireEvent.press(getByText(strings.sendBack.copyAndSwitch('WhatsApp')));
 
     await waitFor(() => {
-      expect(copyToClipboard).toHaveBeenCalledWith(
-        'I hear you. I want to make this better.',
-      );
+      expect(copyToClipboard).toHaveBeenCalledWith('I hear you. I want to make this better.');
     });
 
     expect(saveRewrite).toHaveBeenCalledWith(
@@ -74,39 +72,48 @@ describe('send-back screen', () => {
         fullText: 'I hear you. I want to make this better.',
       }),
     );
-
     expect(openURLSpy).toHaveBeenCalledWith('whatsapp://');
     expect(alertSpy).not.toHaveBeenCalled();
   });
 
-  it('shows copy toast after tapping copy', async () => {
+  it('shows a copy toast after tapping copy', async () => {
     const { getByText } = render(<SendBackScreen />);
 
     fireEvent.press(getByText(strings.compare.copy));
 
     await waitFor(() => {
-      expect(copyToClipboard).toHaveBeenCalledWith(
-        'I hear you. I want to make this better.',
-      );
+      expect(copyToClipboard).toHaveBeenCalledWith('I hear you. I want to make this better.');
     });
 
     expect(getByText(strings.sendBack.copiedToast)).toBeTruthy();
   });
 
-  it('falls back to alert when source app is not WhatsApp', async () => {
+  it('uses copy-only wording and return instructions for Messages', async () => {
     useSessionStore.setState({ sourceApp: 'Messages' });
     const openURLSpy = jest.spyOn(Linking, 'openURL').mockResolvedValueOnce();
     const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
     const { getByText } = render(<SendBackScreen />);
 
-    fireEvent.press(getByText(strings.sendBack.copyAndSwitch('Messages')));
+    expect(getByText(strings.sendBack.returnInstruction('Messages'))).toBeTruthy();
+    fireEvent.press(getByText(strings.sendBack.copyReply));
 
     await waitFor(() => {
       expect(copyToClipboard).toHaveBeenCalled();
     });
 
     expect(openURLSpy).not.toHaveBeenCalled();
-    expect(alertSpy).toHaveBeenCalled();
+    expect(alertSpy).toHaveBeenCalledWith(
+      strings.sendBack.copiedTitle,
+      strings.sendBack.returnInstruction('Messages'),
+    );
+  });
+
+  it('uses generic return instructions when the source app is unknown', () => {
+    useSessionStore.setState({ sourceApp: '' });
+    const { getByText } = render(<SendBackScreen />);
+
+    expect(getByText(strings.sendBack.returnInstructionGeneric)).toBeTruthy();
+    expect(getByText(strings.sendBack.copyReply)).toBeTruthy();
   });
 
   it('edits chosen reply from pencil mode', () => {
@@ -147,29 +154,11 @@ describe('send-back screen', () => {
     expect(router.back).toHaveBeenCalledTimes(1);
   });
 
-  it('falls back to the tab-bar home from the ghost action when there is no back-history', () => {
+  it('falls back to tab-bar home when there is no back-history', () => {
     router.canGoBack.mockReturnValue(false);
     const { getByText } = render(<SendBackScreen />);
 
     fireEvent.press(getByText(strings.sendBack.backToOptions));
-
-    expect(router.back).not.toHaveBeenCalled();
-    expect(router.replace).toHaveBeenCalledWith('/(tabs)');
-  });
-
-  it('goes back from the header arrow when there is back-history', () => {
-    // The header back arrow is the first accessibilityRole="button" element.
-    const { getAllByRole } = render(<SendBackScreen />);
-    fireEvent.press(getAllByRole('button')[0]);
-
-    expect(router.back).toHaveBeenCalledTimes(1);
-    expect(router.replace).not.toHaveBeenCalled();
-  });
-
-  it('falls back to the tab-bar home from the header arrow when there is no back-history', () => {
-    router.canGoBack.mockReturnValue(false);
-    const { getAllByRole } = render(<SendBackScreen />);
-    fireEvent.press(getAllByRole('button')[0]);
 
     expect(router.back).not.toHaveBeenCalled();
     expect(router.replace).toHaveBeenCalledWith('/(tabs)');
