@@ -1,161 +1,169 @@
 import { router } from 'expo-router';
-import { Check, Lock, MessageCircleQuestion, ShieldCheck } from 'lucide-react-native';
-import { useCallback, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Check, ChevronLeft, ChevronRight, Lock, MessageCircle, ShieldCheck, Sparkles } from 'lucide-react-native';
+import { useMemo, useState } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { Button } from '../src/components/Button';
 import { Card } from '../src/components/Card';
-import { setOnboardingComplete } from '../src/services/onboardingStorage';
 import { colors, radii, shadows, spacing } from '../src/theme/tokens';
 import { fonts } from '../src/theme/typography';
 
-const TOTAL_STEPS = 5;
-const ambiguityChoices = ['They agree', "They're upset", "They don't care", "I'm not sure"];
-const outcomeChoices = ['Calm', 'Curious', 'Professional', 'Firm'];
+const steps = [
+  {
+    eyebrow: 'See more than one meaning',
+    title: 'A short message can carry several possible meanings.',
+    body: 'Sentient helps you pause before reacting to the first interpretation that comes to mind.',
+  },
+  {
+    eyebrow: 'Understand before replying',
+    title: 'Look at the message from more than one angle.',
+    body: 'Possible meanings are shown as interpretations, not facts about what another person thinks or feels.',
+  },
+  {
+    eyebrow: 'Choose a clear response',
+    title: 'Get one recommended reply first.',
+    body: 'You can use it immediately or open deeper reasoning and alternative approaches only when you need them.',
+  },
+  {
+    eyebrow: 'Private by design',
+    title: 'You decide what Sentient can read.',
+    body: 'Sentient only works with text you deliberately paste or share. It does not monitor your conversations.',
+  },
+  {
+    eyebrow: 'Ready when needed',
+    title: 'Set up the fastest route from a conversation to a clearer reply.',
+    body: 'You can configure sharing now and adjust your preferences later from Settings.',
+  },
+] as const;
 
 export default function OnboardingScreen() {
   const [step, setStep] = useState(0);
-  const [ambiguityChoice, setAmbiguityChoice] = useState<string | null>(null);
-  const [outcome, setOutcome] = useState('Calm');
+  const [selectedMeaning, setSelectedMeaning] = useState(0);
+  const current = steps[step];
+  const finalStep = step === steps.length - 1;
 
-  const sampleReply = useMemo(() => {
-    switch (outcome) {
-      case 'Curious':
-        return 'I may be reading too much into “Okay”. What did you mean by it?';
-      case 'Professional':
-        return 'Thanks. Before I proceed, could you confirm that this works for you?';
-      case 'Firm':
-        return 'I need a clearer answer before I make a decision.';
-      default:
-        return 'I want to make sure I understood you. Are we okay?';
-    }
-  }, [outcome]);
+  const progressLabel = useMemo(() => `${step + 1} of ${steps.length}`, [step]);
 
-  const finish = useCallback(async () => {
-    await setOnboardingComplete();
-    router.replace('/setup');
-  }, []);
-
-  const next = useCallback(() => {
-    if (step === TOTAL_STEPS - 1) {
-      void finish();
+  const continueForward = () => {
+    if (finalStep) {
+      router.replace('/setup');
       return;
     }
-    setStep((current) => current + 1);
-  }, [finish, step]);
 
-  const skip = useCallback(() => {
-    void finish();
-  }, [finish]);
+    setStep((currentStep) => currentStep + 1);
+  };
+
+  const goBack = () => {
+    if (step === 0) {
+      router.replace('/');
+      return;
+    }
+
+    setStep((currentStep) => currentStep - 1);
+  };
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <View style={styles.topBar}>
-        <View style={styles.progress}>
-          {Array.from({ length: TOTAL_STEPS }).map((_, index) => (
-            <View key={index} style={[styles.dot, index <= step && styles.dotActive]} />
-          ))}
-        </View>
-        <Pressable accessibilityRole="button" onPress={skip}>
-          <Text style={styles.skip}>Skip</Text>
+      <View style={styles.header}>
+        <Pressable accessibilityLabel="Go back" accessibilityRole="button" onPress={goBack} style={styles.iconButton}>
+          <ChevronLeft color={colors.ink55} size={20} strokeWidth={2} />
         </Pressable>
+        <Text style={styles.progress}>{progressLabel}</Text>
+        <View style={styles.iconSpacer} />
       </View>
 
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <View style={styles.content}>
+        <View style={styles.copyBlock}>
+          <Text style={styles.eyebrow}>{current.eyebrow}</Text>
+          <Text style={styles.title}>{current.title}</Text>
+          <Text style={styles.body}>{current.body}</Text>
+        </View>
+
         {step === 0 ? (
-          <>
-            <Text style={styles.title}>Words aren’t always the whole message.</Text>
-            <Card style={styles.messageCard} variant="panel">
-              <Text style={styles.message}>Okay.</Text>
+          <View style={styles.exampleStack}>
+            <Card variant="panel" style={styles.messageCard}>
+              <View style={styles.messageHeader}>
+                <MessageCircle color={colors.oxblood} size={18} strokeWidth={2} />
+                <Text style={styles.messageLabel}>Message</Text>
+              </View>
+              <Text style={styles.messageText}>Okay.</Text>
             </Card>
-            <Text style={styles.question}>What do you think they meant?</Text>
-            <View style={styles.choiceStack}>
-              {ambiguityChoices.map((choice) => (
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityState={{ selected: ambiguityChoice === choice }}
-                  key={choice}
-                  onPress={() => setAmbiguityChoice(choice)}
-                  style={[styles.choice, ambiguityChoice === choice && styles.choiceSelected]}
-                >
-                  <Text style={styles.choiceText}>{choice}</Text>
-                  {ambiguityChoice === choice ? <Check color={colors.oxblood} size={18} /> : null}
-                </Pressable>
-              ))}
+            <View style={styles.outcomeGrid}>
+              {['Agreement', 'Disappointment', 'Distance', 'Uncertainty'].map((label, index) => {
+                const selected = selectedMeaning === index;
+                return (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityState={{ selected }}
+                    key={label}
+                    onPress={() => setSelectedMeaning(index)}
+                    style={[styles.outcome, selected && styles.outcomeSelected]}
+                  >
+                    <Text style={styles.outcomeText}>{label}</Text>
+                  </Pressable>
+                );
+              })}
             </View>
-          </>
+          </View>
         ) : null}
 
         {step === 1 ? (
-          <>
-            <Text style={styles.title}>Every one of those could be true.</Text>
-            <Text style={styles.body}>Words tell only part of the story. Context fills the rest.</Text>
-            <View style={styles.meaningStack}>
-              {ambiguityChoices.map((choice) => (
-                <View key={choice} style={styles.meaningRow}>
-                  <Check color={colors.olive} size={18} />
-                  <Text style={styles.meaningText}>{choice}</Text>
-                </View>
-              ))}
-            </View>
-          </>
+          <View style={styles.flowStack}>
+            <Card variant="panel" style={styles.flowCard}>
+              <MessageCircle color={colors.oxblood} size={18} strokeWidth={2} />
+              <Text style={styles.flowText}>Original message</Text>
+            </Card>
+            <Text style={styles.arrow}>↓</Text>
+            <Card variant="panel" style={styles.flowCard}>
+              <Sparkles color={colors.oxblood} size={18} strokeWidth={2} />
+              <Text style={styles.flowText}>Possible interpretations</Text>
+            </Card>
+            <Text style={styles.arrow}>↓</Text>
+            <Card variant="panel" style={styles.flowCard}>
+              <ShieldCheck color={colors.oxblood} size={18} strokeWidth={2} />
+              <Text style={styles.flowText}>Uncertainty and risks</Text>
+            </Card>
+          </View>
         ) : null}
 
         {step === 2 ? (
-          <>
-            <Text style={styles.title}>Sentient doesn’t guess.</Text>
-            <Text style={styles.body}>It helps you think before you reply.</Text>
-            <View style={styles.flowStack}>
-              {['Original message', 'Possible meanings', 'What we cannot know', 'Suggested replies'].map((label, index) => (
-                <View key={label}>
-                  <Card style={styles.flowCard} variant="panel">
-                    <MessageCircleQuestion color={colors.oxblood} size={18} />
-                    <Text style={styles.flowText}>{label}</Text>
-                  </Card>
-                  {index < 3 ? <Text style={styles.arrow}>↓</Text> : null}
-                </View>
-              ))}
-            </View>
-          </>
+          <Card variant="panel" style={styles.replyCard}>
+            <Text style={styles.replyLabel}>Suggested reply</Text>
+            <Text style={styles.replyText}>Thanks for saying that clearly. I want to understand what you need before I respond.</Text>
+            <Text style={styles.replyReason}>Acknowledges the message without assuming intent.</Text>
+          </Card>
         ) : null}
 
         {step === 3 ? (
-          <>
-            <Text style={styles.title}>Choose your outcome.</Text>
-            <Text style={styles.body}>The same message needs a different reply depending on what you want to achieve.</Text>
-            <View style={styles.outcomeGrid}>
-              {outcomeChoices.map((choice) => (
-                <Pressable key={choice} onPress={() => setOutcome(choice)} style={[styles.outcome, outcome === choice && styles.outcomeSelected]}>
-                  <Text style={styles.outcomeText}>{choice}</Text>
-                </Pressable>
-              ))}
+          <View style={styles.privacyStack}>
+            <View style={styles.privacyRow}>
+              <Lock color={colors.oxblood} size={20} strokeWidth={2} />
+              <Text style={styles.privacyText}>Only text you explicitly paste or share is analysed.</Text>
             </View>
-            <Card style={styles.replyCard} variant="panel">
-              <Text style={styles.replyLabel}>{outcome} reply</Text>
-              <Text style={styles.replyText}>{sampleReply}</Text>
-              <Text style={styles.replyReason}>Why this may work: it makes your intention explicit without pretending to know what the other person meant.</Text>
-            </Card>
-          </>
+            <View style={styles.privacyRow}>
+              <ShieldCheck color={colors.oxblood} size={20} strokeWidth={2} />
+              <Text style={styles.privacyText}>Sentient never sends a message without your action.</Text>
+            </View>
+            <View style={styles.privacyRow}>
+              <Check color={colors.oxblood} size={20} strokeWidth={2} />
+              <Text style={styles.privacyText}>Saved history can be disabled in Settings.</Text>
+            </View>
+          </View>
         ) : null}
 
         {step === 4 ? (
-          <>
-            <Text style={styles.title}>Your conversations stay intentional.</Text>
-            <View style={styles.privacyStack}>
-              <View style={styles.privacyRow}><Lock color={colors.olive} size={20} /><Text style={styles.privacyText}>Only messages you paste or share are processed.</Text></View>
-              <View style={styles.privacyRow}><ShieldCheck color={colors.olive} size={20} /><Text style={styles.privacyText}>Nothing is read automatically.</Text></View>
-              <View style={styles.privacyRow}><Check color={colors.olive} size={20} /><Text style={styles.privacyText}>No background monitoring.</Text></View>
-            </View>
-            <Text style={styles.finishTitle}>Ready to understand before replying?</Text>
-          </>
+          <View style={styles.finishStack}>
+            <Sparkles color={colors.oxblood} size={30} strokeWidth={1.8} />
+            <Text style={styles.finishTitle}>Sentient is ready to help you communicate with clarity.</Text>
+          </View>
         ) : null}
-      </ScrollView>
+      </View>
 
       <View style={styles.footer}>
-        <Button disabled={step === 0 && !ambiguityChoice} onPress={next} size="lg">
-          {step === TOTAL_STEPS - 1 ? 'Continue setup' : 'Continue'}
-        </Button>
+        <Pressable accessibilityRole="button" onPress={continueForward} style={({ pressed }) => [styles.continueButton, pressed && styles.pressed]}>
+          <Text style={styles.continueText}>{finalStep ? 'Set up Sentient' : 'Continue'}</Text>
+          <ChevronRight color={colors.oxbloodFg} size={18} strokeWidth={2} />
+        </Pressable>
       </View>
     </SafeAreaView>
   );
@@ -163,25 +171,21 @@ export default function OnboardingScreen() {
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: colors.paper },
-  topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing[5], paddingTop: spacing[2] },
-  progress: { flexDirection: 'row', gap: spacing[2] },
-  dot: { width: 24, height: 4, borderRadius: radii.pill, backgroundColor: colors.border },
-  dotActive: { backgroundColor: colors.oxblood },
-  skip: { color: colors.ink55, fontFamily: fonts.sansMedium, fontSize: 13 },
-  content: { flexGrow: 1, justifyContent: 'center', paddingHorizontal: spacing[6], paddingVertical: spacing[6] },
-  title: { color: colors.ink, fontFamily: fonts.serif, fontSize: 32, lineHeight: 38, textAlign: 'center', letterSpacing: -0.6, marginBottom: spacing[3] },
-  body: { color: colors.ink72, fontFamily: fonts.sans, fontSize: 15, lineHeight: 22, textAlign: 'center', marginBottom: spacing[6] },
-  messageCard: { paddingVertical: spacing[8], alignItems: 'center', marginVertical: spacing[5], ...shadows.md },
-  message: { color: colors.ink, fontFamily: fonts.serif, fontSize: 42 },
-  question: { color: colors.ink72, fontFamily: fonts.sansMedium, fontSize: 15, textAlign: 'center', marginBottom: spacing[4] },
-  choiceStack: { gap: spacing[3] },
-  choice: { minHeight: 54, borderRadius: radii.md, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.paperSoft, paddingHorizontal: spacing[4], flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  choiceSelected: { borderColor: colors.oxblood, backgroundColor: colors.soft },
-  choiceText: { color: colors.ink, fontFamily: fonts.sansMedium, fontSize: 15 },
-  meaningStack: { gap: spacing[3], marginTop: spacing[4] },
-  meaningRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[3], padding: spacing[4], borderRadius: radii.md, backgroundColor: colors.paperSoft },
-  meaningText: { color: colors.ink, fontFamily: fonts.sansMedium, fontSize: 15 },
-  flowStack: { marginTop: spacing[3] },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing[4], paddingTop: spacing[2] },
+  iconButton: { width: 44, height: 44, borderRadius: radii.pill, alignItems: 'center', justifyContent: 'center' },
+  iconSpacer: { width: 44 },
+  progress: { color: colors.ink40, fontFamily: fonts.sansMedium, fontSize: 12 },
+  content: { flex: 1, paddingHorizontal: spacing[6], paddingTop: spacing[4] },
+  copyBlock: { gap: spacing[2], marginBottom: spacing[5] },
+  eyebrow: { color: colors.oxblood, fontFamily: fonts.sansSemiBold, fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.7 },
+  title: { color: colors.ink, fontFamily: fonts.serif, fontSize: 31, lineHeight: 38 },
+  body: { color: colors.ink55, fontFamily: fonts.sans, fontSize: 15, lineHeight: 23 },
+  exampleStack: { gap: spacing[4] },
+  messageCard: { padding: spacing[5], gap: spacing[3] },
+  messageHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing[2] },
+  messageLabel: { color: colors.oxblood, fontFamily: fonts.sansSemiBold, fontSize: 12, textTransform: 'uppercase' },
+  messageText: { color: colors.ink, fontFamily: fonts.serif, fontSize: 34, lineHeight: 42 },
+  flowStack: { gap: spacing[2] },
   flowCard: { padding: spacing[4], flexDirection: 'row', alignItems: 'center', gap: spacing[3] },
   flowText: { color: colors.ink, fontFamily: fonts.sansSemiBold, fontSize: 15 },
   arrow: { color: colors.ink40, textAlign: 'center', fontSize: 22, lineHeight: 30 },
@@ -193,9 +197,13 @@ const styles = StyleSheet.create({
   replyLabel: { color: colors.oxblood, fontFamily: fonts.sansSemiBold, fontSize: 12, textTransform: 'uppercase' },
   replyText: { color: colors.ink, fontFamily: fonts.sansMedium, fontSize: 16, lineHeight: 23 },
   replyReason: { color: colors.ink55, fontFamily: fonts.sans, fontSize: 12.5, lineHeight: 18 },
-  privacyStack: { gap: spacing[4], marginVertical: spacing[7] },
+  privacyStack: { gap: spacing[4], marginVertical: spacing[8] },
   privacyRow: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing[3] },
   privacyText: { flex: 1, color: colors.ink72, fontFamily: fonts.sans, fontSize: 15, lineHeight: 22 },
+  finishStack: { alignItems: 'center', gap: spacing[4], paddingTop: spacing[8] },
   finishTitle: { color: colors.ink, fontFamily: fonts.serif, fontSize: 25, lineHeight: 31, textAlign: 'center', marginTop: spacing[5] },
   footer: { paddingHorizontal: spacing[6], paddingBottom: spacing[5], paddingTop: spacing[3] },
+  continueButton: { minHeight: 52, borderRadius: radii.pill, backgroundColor: colors.oxblood, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing[2] },
+  continueText: { color: colors.oxbloodFg, fontFamily: fonts.sansSemiBold, fontSize: 15 },
+  pressed: { opacity: 0.85 },
 });
