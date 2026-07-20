@@ -61,31 +61,35 @@ describe('rewriteApi', () => {
     }
   });
 
-  it('parses interpretations and enriched reply options on success', async () => {
-    const interpretations = [
-      {
-        title: 'They may be seeking reassurance',
-        confidence: 'high' as const,
-        explanation: 'The wording leaves the decision open but sounds emotionally loaded.',
-      },
-      {
-        title: 'They may feel unheard',
-        confidence: 'medium' as const,
-        explanation: 'The abrupt phrasing could reflect frustration with the discussion.',
-      },
-      {
-        title: 'They may mean it literally',
-        confidence: 'low' as const,
-        explanation: 'There is not enough context to rule out a neutral reading.',
-      },
-    ];
-    const options = [
+  it('parses structured analysis and responses while exposing screen aliases', async () => {
+    const analysis = {
+      possibleMeanings: [
+        {
+          title: 'They may be seeking reassurance',
+          confidence: 'high' as const,
+          explanation: 'The wording sounds emotionally loaded.',
+        },
+        {
+          title: 'They may feel unheard',
+          confidence: 'medium' as const,
+          explanation: 'The abrupt phrasing could reflect frustration.',
+        },
+        {
+          title: 'They may mean it literally',
+          confidence: 'low' as const,
+          explanation: 'A neutral reading cannot be ruled out.',
+        },
+      ],
+      whatWeCannotKnow: ['Whether they are upset or simply ending the discussion.'],
+      watchOutFor: ['Do not answer the implied emotion as though it were certain.'],
+    };
+    const responses = [
       {
         label: 'Option 1',
         tag: 'calm',
-        text: 'I do care what you think. Can we slow down and clarify this?',
+        text: 'I do care what you think. Can we clarify this?',
         recommended: true,
-        rationale: 'It reassures first, then asks for clarity without assuming intent.',
+        rationale: 'It reassures first and asks for clarity.',
         understandingScore: 88,
         risks: [],
       },
@@ -94,16 +98,16 @@ describe('rewriteApi', () => {
         tag: 'direct',
         text: 'I am not comfortable deciding this while we are frustrated.',
         recommended: false,
-        rationale: 'It sets a boundary while keeping the focus on the decision.',
+        rationale: 'It sets a boundary without assigning motive.',
         understandingScore: 78,
-        risks: ['May feel firm if they wanted reassurance.'],
+        risks: ['May feel firm if reassurance was wanted.'],
       },
       {
         label: 'Option 3',
         tag: 'brief',
         text: 'I would rather understand what you want before I decide.',
         recommended: false,
-        rationale: 'It asks for clarity in a concise way.',
+        rationale: 'It asks for clarity concisely.',
         understandingScore: 82,
         risks: ['Could sound emotionally distant.'],
       },
@@ -112,7 +116,7 @@ describe('rewriteApi', () => {
     global.fetch = jest.fn().mockResolvedValue({
       ok: true,
       status: 200,
-      json: async () => ({ interpretations, options }),
+      json: async () => ({ analysis, responses }),
     });
 
     const result = await fetchRewrites({
@@ -122,10 +126,11 @@ describe('rewriteApi', () => {
 
     expect(result).toEqual({
       success: true,
+      analysis,
+      responses,
+      options: responses,
       perspective:
-        'They may be seeking reassurance (high confidence) — The wording leaves the decision open but sounds emotionally loaded.\n\nThey may feel unheard (medium confidence) — The abrupt phrasing could reflect frustration with the discussion.\n\nThey may mean it literally (low confidence) — There is not enough context to rule out a neutral reading.',
-      interpretations,
-      options,
+        'What may be happening\nThey may be seeking reassurance (high) — The wording sounds emotionally loaded.\n\nThey may feel unheard (medium) — The abrupt phrasing could reflect frustration.\n\nThey may mean it literally (low) — A neutral reading cannot be ruled out.\n\nWhat we cannot know from this message\n• Whether they are upset or simply ending the discussion.\n\nBefore you reply\n• Do not answer the implied emotion as though it were certain.',
     });
   });
 
@@ -133,7 +138,10 @@ describe('rewriteApi', () => {
     global.fetch = jest.fn().mockResolvedValue({
       ok: true,
       status: 200,
-      json: async () => ({ interpretations: [], options: [] }),
+      json: async () => ({
+        analysis: { possibleMeanings: [], whatWeCannotKnow: [], watchOutFor: [] },
+        responses: [],
+      }),
     });
 
     await fetchRewrites({
