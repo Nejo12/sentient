@@ -3,6 +3,7 @@ import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 
 import { FREE_DAILY_LIMIT, getDailyRewriteCount, isPro, refreshProStatus } from './entitlements';
+import { getRuntimeDiagnosticEvents } from './runtimeDiagnostics';
 import { ensureSupabaseSession, isSupabaseConfigured } from './supabase';
 
 export type DiagnosticState = 'ok' | 'warning' | 'error';
@@ -55,7 +56,10 @@ async function runEdgeDiagnostic(accessToken: string): Promise<DiagnosticCheck[]
     const data = (await response.json()) as {
       ok?: boolean;
       version?: string;
+      promptVersion?: string;
+      contractVersion?: string;
       model?: string;
+      latencyMs?: number;
       openai?: { state?: string; detail?: string };
       error?: string;
     };
@@ -70,11 +74,18 @@ async function runEdgeDiagnostic(accessToken: string): Promise<DiagnosticCheck[]
     const openaiState = data.openai?.state;
     const openai: DiagnosticCheck = {
       id: 'openai',
-      label: 'OpenAI',
+      label: 'OpenAI connectivity',
       state: openaiState === 'ok' ? 'ok' : openaiState === 'rate_limited' ? 'warning' : 'error',
       detail: data.openai?.detail ?? (response.ok ? `Model ${data.model ?? 'unknown'}` : 'Unavailable'),
+      latencyMs: data.latencyMs,
     };
-    return [edge, openai];
+    const versions: DiagnosticCheck = {
+      id: 'versions',
+      label: 'AI runtime versions',
+      state: response.ok ? 'ok' : 'warning',
+      detail: `Model ${data.model ?? 'unknown'} · Prompt ${data.promptVersion ?? 'unknown'} · Contract ${data.contractVersion ?? 'unknown'} · Backend ${data.version ?? 'unknown'}`,
+    };
+    return [edge, openai, versions];
   } catch (error) {
     return [{
       id: 'edge',
@@ -100,7 +111,11 @@ export async function runDiagnostics(): Promise<DiagnosticReport> {
     id: 'auth',
     label: 'Supabase session',
     state: session?.access_token ? 'ok' : 'error',
-    detail: session?.user?.is_anonymous ? 'Anonymous session is valid.' : session?.user?.email ? `Signed in as ${session.user.email}.` : 'No valid session.',
+    detail: session?.user?.is_anonymous
+      ? 'Healthy anonymous session.'
+      : session?.user?.email
+        ? `Healthy signed-in session for ${session.user.email}.`
+        : 'No valid session.',
   });
 
   if (session?.access_token) {
@@ -121,6 +136,18 @@ export async function runDiagnostics(): Promise<DiagnosticReport> {
     label: 'Local free usage',
     state: count >= FREE_DAILY_LIMIT ? 'warning' : 'ok',
     detail: `${count} / ${FREE_DAILY_LIMIT} rewrites used today.`,
+  });
+
+  const events = await getRuntimeDiagnosticEvents();
+  const lastRewrite = events[0];
+  checks.push({
+    id: 'last-rewrite',
+    label: 'Last rewrite',
+    state: !lastRewrite ? 'warning' : lastRewrite.status === 'success' ? 'ok' : 'error',
+    detail: !lastRewrite
+      ? 'No rewrite has been recorded on this device yet.'
+      : `${lastRewrite.status === 'success' ? 'Completed' : `Failed · ${lastRewrite.code ?? 'UNKNOWN'}`} · ${lastRewrite.latencyMs} ms · ${new Date(lastRewrite.at).toLocaleString()}`,
+    latencyMs: lastRewrite?.latencyMs,
   });
 
   return {
