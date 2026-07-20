@@ -173,6 +173,7 @@ describe('rewriteApi', () => {
 
     expect(result).toEqual({
       success: false,
+      code: 'SAFETY_QUOTA_EXCEEDED',
       message: 'You have reached today’s safety limit. Please try again tomorrow.',
     });
   });
@@ -188,6 +189,7 @@ describe('rewriteApi', () => {
 
     expect(result).toEqual({
       success: false,
+      code: 'NETWORK_ERROR',
       message: strings.errors.network,
     });
   });
