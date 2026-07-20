@@ -1,7 +1,7 @@
 import { strings } from '../constants/strings';
 import type {
+  CommunicationAnalysis,
   Intent,
-  MessageInterpretation,
   RewriteOption,
   Understanding,
 } from '../types/rewrite';
@@ -17,9 +17,8 @@ export interface FetchRewritesParams {
 
 export type FetchRewritesSuccess = {
   success: true;
-  perspective: string | null;
-  interpretations: MessageInterpretation[];
-  options: RewriteOption[];
+  analysis: CommunicationAnalysis;
+  responses: RewriteOption[];
 };
 
 export type FetchRewritesFailure = {
@@ -41,19 +40,6 @@ function rewriteUrl(): string {
 function apiKeyHeader(): Record<string, string> {
   const anonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
   return anonKey ? { apikey: anonKey } : {};
-}
-
-function buildPerspective(interpretations: MessageInterpretation[]): string | null {
-  if (!interpretations.length) {
-    return null;
-  }
-
-  return interpretations
-    .map(
-      (item) =>
-        `${item.title} (${item.confidence} confidence) — ${item.explanation}`,
-    )
-    .join('\n\n');
 }
 
 export async function fetchRewrites(
@@ -127,16 +113,14 @@ export async function fetchRewrites(
     }
 
     const data = (await response.json()) as {
-      interpretations?: MessageInterpretation[];
-      options: RewriteOption[];
+      analysis: CommunicationAnalysis;
+      responses: RewriteOption[];
     };
-    const interpretations = data.interpretations ?? [];
 
     return {
       success: true,
-      perspective: buildPerspective(interpretations),
-      interpretations,
-      options: data.options,
+      analysis: data.analysis,
+      responses: data.responses,
     };
   } catch {
     return {
