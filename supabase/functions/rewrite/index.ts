@@ -1,7 +1,9 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { OpenAI } from 'https://esm.sh/openai@4';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const BLOCKED = 'Something here needs another look.';
+const HARD_DAILY_SAFETY_LIMIT = 100;
 
 // Sentient rewrites tense, hostile messages by design — ordinary venting trips
 // OpenAI's broader categories (harassment, hate, self-harm) constantly, so we
@@ -60,10 +62,7 @@ const UNDERSTANDING_VALUES: Understanding[] = [
   'professional',
 ];
 
-function jsonResponse(
-  body: unknown,
-  status = 200,
-): Response {
+function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -102,10 +101,7 @@ function isValidOption(value: unknown): value is RewriteOption {
   );
 }
 
-function parseRewriteResponse(
-  raw: unknown,
-  intent: Intent,
-): RewriteResponse | null {
+function parseRewriteResponse(raw: unknown, intent: Intent): RewriteResponse | null {
   if (typeof raw !== 'object' || raw === null) {
     return null;
   }
@@ -136,6 +132,54 @@ function parseRewriteResponse(
   };
 }
 
+async function authenticateRequest(req: Request): Promise<string | null> {
+  const supabaseUrl = Deno.env.get('SUPABASE_URL');
+  const anonKey = Deno.env.get('SUPABASE_ANON_KEY');
+  const authorization = req.headers.get('Authorization');
+
+  if (!supabaseUrl || !anonKey || !authorization?.startsWith('Bearer ')) {
+    return null;
+  }
+
+  const userClient = createClient(supabaseUrl, anonKey, {
+    global: { headers: { Authorization: authorization } },
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+
+  const { data, error } = await userClient.auth.getUser();
+  if (error || !data.user) {
+    return null;
+  }
+
+  return data.user.id;
+}
+
+async function consumeSafetyQuota(userId: string): Promise<'allowed' | 'blocked' | 'error'> {
+  const supabaseUrl = Deno.env.get('SUPABASE_URL');
+  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+
+  if (!supabaseUrl || !serviceRoleKey) {
+    return 'error';
+  }
+
+  const admin = createClient(supabaseUrl, serviceRoleKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+
+  const { data, error } = await admin.rpc('consume_rewrite_safety_quota', {
+    p_user_id: userId,
+    p_daily_limit: HARD_DAILY_SAFETY_LIMIT,
+  });
+
+  if (error) {
+    console.error('rewrite quota error:', error.message);
+    return 'error';
+  }
+
+  const result = Array.isArray(data) ? data[0] : data;
+  return result?.allowed === true ? 'allowed' : 'blocked';
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -143,6 +187,11 @@ serve(async (req) => {
 
   if (req.method !== 'POST') {
     return jsonResponse({ error: 'Method not allowed' }, 405);
+  }
+
+  const userId = await authenticateRequest(req);
+  if (!userId) {
+    return jsonResponse({ error: 'Authentication required' }, 401);
   }
 
   let body: RewriteRequest;
@@ -169,15 +218,20 @@ serve(async (req) => {
   }
 
   if (intent === 'do') {
-    if (
-      !understanding ||
-      !UNDERSTANDING_VALUES.includes(understanding)
-    ) {
+    if (!understanding || !UNDERSTANDING_VALUES.includes(understanding)) {
       return jsonResponse(
         { error: 'understanding is required for intent do' },
         400,
       );
     }
+  }
+
+  const quota = await consumeSafetyQuota(userId);
+  if (quota === 'blocked') {
+    return jsonResponse({ error: 'Daily safety limit reached' }, 429);
+  }
+  if (quota === 'error') {
+    return jsonResponse({ error: 'Usage verification unavailable' }, 503);
   }
 
   const apiKey = Deno.env.get('OPENAI_API_KEY');
@@ -238,9 +292,8 @@ serve(async (req) => {
 
     return jsonResponse(response);
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : 'Rewrite request failed';
+    const message = error instanceof Error ? error.message : 'Rewrite request failed';
     console.error('rewrite function error:', message);
-    return jsonResponse({ error: message }, 500);
+    return jsonResponse({ error: 'Rewrite request failed' }, 500);
   }
 });
