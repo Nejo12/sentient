@@ -4,7 +4,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const BLOCKED = 'Something here needs another look.';
 const HARD_DAILY_SAFETY_LIMIT = 100;
-const FUNCTION_VERSION = 'rewrite-v2.2';
+const FUNCTION_VERSION = 'rewrite-v2.3';
 const PROMPT_VERSION = 'communication-intelligence-v1';
 const CONTRACT_VERSION = 'analysis-v2';
 const MODEL = 'gpt-4o-mini';
@@ -25,6 +25,12 @@ const corsHeaders: Record<string, string> = {
 type Intent = 'do' | 'missing';
 type Understanding = 'calm' | 'confident' | 'curious' | 'compassionate' | 'firm' | 'professional';
 type Confidence = 'high' | 'medium' | 'low';
+
+type AuthenticatedUser = {
+  id: string;
+  email: string | null;
+  isAnonymous: boolean;
+};
 
 interface RewriteRequest {
   mode?: 'diagnostics';
@@ -116,7 +122,7 @@ function parseRewriteResponse(raw: unknown): RewriteResponse | null {
   };
 }
 
-async function authenticateRequest(req: Request): Promise<string | null> {
+async function authenticateRequest(req: Request): Promise<AuthenticatedUser | null> {
   const supabaseUrl = Deno.env.get('SUPABASE_URL');
   const anonKey = Deno.env.get('SUPABASE_ANON_KEY');
   const authorization = req.headers.get('Authorization');
@@ -126,7 +132,22 @@ async function authenticateRequest(req: Request): Promise<string | null> {
     auth: { persistSession: false, autoRefreshToken: false },
   });
   const { data, error } = await userClient.auth.getUser();
-  return error || !data.user ? null : data.user.id;
+  if (error || !data.user) return null;
+  return {
+    id: data.user.id,
+    email: data.user.email?.trim().toLowerCase() ?? null,
+    isAnonymous: data.user.is_anonymous === true,
+  };
+}
+
+function isDiagnosticsAdmin(user: AuthenticatedUser): boolean {
+  if (user.isAnonymous || !user.email) return false;
+  const configured = Deno.env.get('SENTIENT_ADMIN_EMAILS') ?? '';
+  const allowedEmails = configured
+    .split(',')
+    .map((email) => email.trim().toLowerCase())
+    .filter(Boolean);
+  return allowedEmails.includes(user.email);
 }
 
 async function consumeSafetyQuota(userId: string): Promise<'allowed' | 'blocked' | 'error'> {
@@ -164,8 +185,8 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
   if (req.method !== 'POST') return jsonResponse({ error: 'Method not allowed' }, 405);
 
-  const userId = await authenticateRequest(req);
-  if (!userId) return jsonResponse({ code: 'SUPABASE_AUTH_FAILED', error: 'Authentication required' }, 401);
+  const user = await authenticateRequest(req);
+  if (!user) return jsonResponse({ code: 'SUPABASE_AUTH_FAILED', error: 'Authentication required' }, 401);
 
   let body: RewriteRequest;
   try { body = await req.json(); } catch { return jsonResponse({ code: 'INVALID_REQUEST', error: 'Invalid JSON body' }, 400); }
@@ -174,6 +195,13 @@ serve(async (req) => {
   if (!apiKey) return jsonResponse({ code: 'SERVER_CONFIGURATION_ERROR', error: 'OpenAI API key is not configured' }, 500);
 
   if (body.mode === 'diagnostics') {
+    if (!isDiagnosticsAdmin(user)) {
+      return jsonResponse({
+        code: 'DIAGNOSTICS_ADMIN_REQUIRED',
+        error: 'Diagnostics require an authorised signed-in administrator account.',
+      }, 403);
+    }
+
     const started = Date.now();
     try {
       const openai = new OpenAI({ apiKey });
@@ -211,7 +239,7 @@ serve(async (req) => {
     return jsonResponse({ code: 'INVALID_REQUEST', error: 'understanding is required for intent do' }, 400);
   }
 
-  const quota = await consumeSafetyQuota(userId);
+  const quota = await consumeSafetyQuota(user.id);
   if (quota === 'blocked') return jsonResponse({ code: 'SAFETY_QUOTA_EXCEEDED', error: 'Daily safety limit reached' }, 429);
   if (quota === 'error') return jsonResponse({ code: 'USAGE_VERIFICATION_UNAVAILABLE', error: 'Usage verification unavailable' }, 503);
 
