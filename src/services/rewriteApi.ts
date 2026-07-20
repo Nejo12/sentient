@@ -64,11 +64,21 @@ function messageForCode(code?: string, fallback?: string): string {
   }
 }
 
+function fallbackCodeForStatus(status: number): string | undefined {
+  if (status === 401) return 'SUPABASE_AUTH_FAILED';
+  if (status === 429) return 'SAFETY_QUOTA_EXCEEDED';
+  return undefined;
+}
+
 export async function fetchRewrites(params: FetchRewritesParams): Promise<FetchRewritesResult> {
   try {
     const session = await ensureSupabaseSession();
     if (!session?.access_token) {
-      return { success: false, code: 'SUPABASE_AUTH_FAILED', message: 'Sentient could not start a secure session. Please try again.' };
+      return {
+        success: false,
+        code: 'SUPABASE_AUTH_FAILED',
+        message: 'Sentient could not start a secure session. Please try again.',
+      };
     }
 
     const response = await fetch(rewriteUrl(), {
@@ -90,17 +100,45 @@ export async function fetchRewrites(params: FetchRewritesParams): Promise<FetchR
     if (response.status === 422) {
       const data = (await response.json()) as { blocked?: boolean; code?: string };
       if (data.blocked) {
-        return { success: false, blocked: true, code: data.code, message: strings.errors.moderation };
+        return {
+          success: false,
+          blocked: true,
+          code: data.code,
+          message: strings.errors.moderation,
+        };
       }
     }
 
     if (!response.ok) {
+      const statusCode = fallbackCodeForStatus(response.status);
+
       try {
-        const data = (await response.json()) as { code?: string; message?: string; error?: string };
-        const fallback = typeof data.message === 'string' ? data.message : typeof data.error === 'string' ? data.error : undefined;
-        return { success: false, code: data.code, message: messageForCode(data.code, fallback) };
+        const data = (await response.json()) as {
+          code?: string;
+          message?: string;
+          error?: string;
+        };
+        const code = data.code ?? statusCode;
+        const fallback =
+          typeof data.message === 'string'
+            ? data.message
+            : typeof data.error === 'string'
+              ? data.error
+              : undefined;
+
+        return {
+          success: false,
+          code,
+          message: messageForCode(code, fallback),
+        };
       } catch {
-        return { success: false, message: `Sentient could not complete the request (HTTP ${response.status}).` };
+        return {
+          success: false,
+          code: statusCode,
+          message: statusCode
+            ? messageForCode(statusCode)
+            : `Sentient could not complete the request (HTTP ${response.status}).`,
+        };
       }
     }
 
@@ -117,6 +155,10 @@ export async function fetchRewrites(params: FetchRewritesParams): Promise<FetchR
       options: data.responses,
     };
   } catch {
-    return { success: false, code: 'NETWORK_ERROR', message: strings.errors.network };
+    return {
+      success: false,
+      code: 'NETWORK_ERROR',
+      message: strings.errors.network,
+    };
   }
 }
