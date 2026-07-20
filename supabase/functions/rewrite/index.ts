@@ -4,7 +4,9 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const BLOCKED = 'Something here needs another look.';
 const HARD_DAILY_SAFETY_LIMIT = 100;
-const FUNCTION_VERSION = 'rewrite-v2.1';
+const FUNCTION_VERSION = 'rewrite-v2.2';
+const PROMPT_VERSION = 'communication-intelligence-v1';
+const CONTRACT_VERSION = 'analysis-v2';
 const MODEL = 'gpt-4o-mini';
 const SEVERE_MODERATION_CATEGORIES = [
   'sexual/minors',
@@ -172,13 +174,17 @@ serve(async (req) => {
   if (!apiKey) return jsonResponse({ code: 'SERVER_CONFIGURATION_ERROR', error: 'OpenAI API key is not configured' }, 500);
 
   if (body.mode === 'diagnostics') {
+    const started = Date.now();
     try {
       const openai = new OpenAI({ apiKey });
       await openai.models.retrieve(MODEL);
       return jsonResponse({
         ok: true,
         version: FUNCTION_VERSION,
+        promptVersion: PROMPT_VERSION,
+        contractVersion: CONTRACT_VERSION,
         model: MODEL,
+        latencyMs: Date.now() - started,
         openai: { state: 'ok', detail: `Connected · ${MODEL}` },
       });
     } catch (error) {
@@ -187,7 +193,10 @@ serve(async (req) => {
       return jsonResponse({
         ok: false,
         version: FUNCTION_VERSION,
+        promptVersion: PROMPT_VERSION,
+        contractVersion: CONTRACT_VERSION,
         model: MODEL,
+        latencyMs: Date.now() - started,
         code: classified.code,
         error: classified.detail,
         openai: { state: classified.state, detail: classified.detail },
