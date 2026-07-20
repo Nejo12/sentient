@@ -1,5 +1,5 @@
 import { fireEvent, render, waitFor } from '@testing-library/react-native';
-import { Linking, Platform } from 'react-native';
+import { Alert, Platform } from 'react-native';
 
 import SetupScreen from '../app/setup';
 import { strings } from '../src/constants/strings';
@@ -54,28 +54,34 @@ describe('setup screen', () => {
     (setOverlaySetupDone as jest.Mock).mockResolvedValue(undefined);
     (setSetupComplete as jest.Mock).mockResolvedValue(undefined);
     (setShareSetupDone as jest.Mock).mockResolvedValue(undefined);
-    jest.spyOn(Linking, 'openSettings').mockResolvedValue(undefined);
   });
 
-  it('renders welcome copy and privacy reassurance', async () => {
+  it('renders welcome copy and privacy reassurance', () => {
     const { getByText } = render(<SetupScreen />);
 
-    expect(getByText('Welcome to Sentient')).toBeTruthy();
-    expect(getByText('Add to your Share sheet')).toBeTruthy();
-    expect(
-      getByText(
-        'Sentient only reads a message when you share it. It never watches your chats in the background.',
-      ),
-    ).toBeTruthy();
+    expect(getByText(strings.setup.welcome)).toBeTruthy();
+    expect(getByText(strings.setup.shareSheetTitle)).toBeTruthy();
+    expect(getByText(strings.setup.privacyReassurance)).toBeTruthy();
   });
 
-  it('marks share row done after opening settings', async () => {
+  it('shows Share Sheet instructions and marks setup done after confirmation', async () => {
+    let actions: { text?: string; onPress?: () => void }[] = [];
+    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation((_title, _body, buttons) => {
+      actions = buttons ?? [];
+    });
     const { getByText, getByTestId } = render(<SetupScreen />);
 
-    fireEvent.press(getByText('Add to your Share sheet'));
+    fireEvent.press(getByText(strings.setup.shareSheetTitle));
+
+    expect(alertSpy).toHaveBeenCalledWith(
+      strings.setup.shareHelpTitle,
+      strings.setup.shareHelpBody,
+      expect.any(Array),
+    );
+
+    actions.find((action) => action.text === strings.setup.shareHelpDone)?.onPress?.();
 
     await waitFor(() => {
-      expect(Linking.openSettings).toHaveBeenCalled();
       expect(setShareSetupDone).toHaveBeenCalled();
       expect(getByTestId('share-done-badge')).toBeTruthy();
     });
@@ -84,7 +90,7 @@ describe('setup screen', () => {
   it('continues to choose flow in dev with sample params', async () => {
     const { getByText } = render(<SetupScreen />);
 
-    fireEvent.press(getByText('Continue'));
+    fireEvent.press(getByText(strings.setup.continue));
 
     await waitFor(() => {
       expect(setSetupComplete).toHaveBeenCalled();
@@ -99,10 +105,10 @@ describe('setup screen', () => {
     });
   });
 
-  it('opens sign-in stub', async () => {
+  it('opens sign-in', () => {
     const { getByText } = render(<SetupScreen />);
 
-    fireEvent.press(getByText('Sign in to sync your rewrites'));
+    fireEvent.press(getByText(strings.setup.signIn));
 
     expect(router.push).toHaveBeenCalledWith('/auth/sign-in');
   });
@@ -111,15 +117,15 @@ describe('setup screen', () => {
     Platform.OS = 'android';
     const { getByText, getByTestId } = render(<SetupScreen />);
 
-    expect(getByText('Draw over other apps')).toBeTruthy();
-    fireEvent.press(getByText('Draw over other apps'));
+    expect(getByText(strings.setup.overlayTitle)).toBeTruthy();
+    fireEvent.press(getByText(strings.setup.overlayTitle));
 
     await waitFor(() => {
       expect(requestOverlayPermission).toHaveBeenCalled();
     });
 
     (isOverlayPermissionGranted as jest.Mock).mockResolvedValue(true);
-    fireEvent.press(getByText('Draw over other apps'));
+    fireEvent.press(getByText(strings.setup.overlayTitle));
 
     await waitFor(() => {
       expect(setOverlaySetupDone).toHaveBeenCalled();
@@ -127,15 +133,15 @@ describe('setup screen', () => {
     });
   });
 
-  it('hides Android overlay permission row on iOS', async () => {
+  it('hides Android overlay permission row on iOS', () => {
     Platform.OS = 'ios';
     const { queryByText } = render(<SetupScreen />);
 
-    expect(queryByText('Draw over other apps')).toBeNull();
+    expect(queryByText(strings.setup.overlayTitle)).toBeNull();
   });
 
   it('starts the bubble once overlay permission is granted on Android', async () => {
-    const { requestOverlayPermission, isOverlayPermissionGranted } = jest.requireMock(
+    const { isOverlayPermissionGranted } = jest.requireMock(
       '../src/services/overlayPermission',
     );
     const { startBubble } = jest.requireMock('../src/services/bubbleService');
@@ -147,14 +153,11 @@ describe('setup screen', () => {
     fireEvent.press(getByText(strings.setup.overlayTitle));
 
     await waitFor(() => {
-      expect(requestOverlayPermission).toHaveBeenCalled();
-    });
-    await waitFor(() => {
       expect(startBubble).toHaveBeenCalled();
     });
   });
 
-  it('starts the bubble on mount when overlay permission was already granted in a previous session', async () => {
+  it('starts the bubble on mount when overlay permission was already granted', async () => {
     const { isOverlayPermissionGranted } = jest.requireMock(
       '../src/services/overlayPermission',
     );
@@ -169,7 +172,7 @@ describe('setup screen', () => {
     });
   });
 
-  it('does not start the bubble on mount when setup was previously done but permission is no longer granted', async () => {
+  it('does not start the bubble when setup was done but permission was revoked', async () => {
     const { isOverlayPermissionGranted } = jest.requireMock(
       '../src/services/overlayPermission',
     );

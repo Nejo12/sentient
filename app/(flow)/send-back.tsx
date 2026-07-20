@@ -29,6 +29,11 @@ import { goBackOrHome } from '../../src/utils/navigation';
 const TOAST_TIMEOUT_MS = 1300;
 const WHATSAPP_URL = 'whatsapp://';
 
+function isKnownSourceApp(sourceApp: string): boolean {
+  const normalized = sourceApp.trim().toLowerCase();
+  return Boolean(normalized && normalized !== 'your chat app' && normalized !== 'unknown');
+}
+
 export default function SendBackScreen() {
   const {
     chosenReply,
@@ -60,7 +65,12 @@ export default function SendBackScreen() {
     [understanding],
   );
 
-  const appName = sourceApp.trim() || 'your chat app';
+  const appName = sourceApp.trim() || 'your conversation';
+  const hasKnownSourceApp = isKnownSourceApp(sourceApp);
+  const canSwitchDirectly = sourceApp.trim().toLowerCase() === 'whatsapp';
+  const returnInstruction = hasKnownSourceApp
+    ? strings.sendBack.returnInstruction(appName)
+    : strings.sendBack.returnInstructionGeneric;
 
   const showCopiedToast = () => {
     setShowToast(true);
@@ -98,8 +108,8 @@ export default function SendBackScreen() {
   const handlePrimaryAction = async () => {
     await handleCopy();
 
-    if (sourceApp.trim().toLowerCase() !== 'whatsapp') {
-      Alert.alert(strings.sendBack.copiedToast, strings.sendBack.reassurance);
+    if (!canSwitchDirectly) {
+      Alert.alert(strings.sendBack.copiedTitle, returnInstruction);
       return;
     }
 
@@ -110,10 +120,10 @@ export default function SendBackScreen() {
         return;
       }
     } catch {
-      // Best-effort switch only; fallback keeps user in explicit control.
+      // Best-effort switch only; fallback keeps the user in explicit control.
     }
 
-    Alert.alert(strings.sendBack.copiedToast, strings.sendBack.reassurance);
+    Alert.alert(strings.sendBack.copiedTitle, returnInstruction);
   };
 
   const toggleEditing = () => {
@@ -187,8 +197,11 @@ export default function SendBackScreen() {
             style={styles.fullWidthButton}
             variant="primary"
           >
-            {strings.sendBack.copyAndSwitch(appName)}
+            {canSwitchDirectly
+              ? strings.sendBack.copyAndSwitch(appName)
+              : strings.sendBack.copyReply}
           </Button>
+          <Text style={styles.returnInstruction}>{returnInstruction}</Text>
           <Button
             onPress={goBackOrHome}
             size="lg"
@@ -299,6 +312,14 @@ const styles = StyleSheet.create({
   actionStack: {
     marginTop: spacing[2],
     gap: spacing[2],
+  },
+  returnInstruction: {
+    color: colors.ink55,
+    fontFamily: fonts.sans,
+    fontSize: 12,
+    lineHeight: 18,
+    textAlign: 'center',
+    paddingHorizontal: spacing[3],
   },
   fullWidthButton: {
     width: '100%',
