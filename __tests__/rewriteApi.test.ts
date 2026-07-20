@@ -129,8 +129,7 @@ describe('rewriteApi', () => {
       analysis,
       responses,
       options: responses,
-      perspective:
-        'What may be happening\nThey may be seeking reassurance (high) — The wording sounds emotionally loaded.\n\nThey may feel unheard (medium) — The abrupt phrasing could reflect frustration.\n\nThey may mean it literally (low) — A neutral reading cannot be ruled out.\n\nWhat we cannot know from this message\n• Whether they are upset or simply ending the discussion.\n\nBefore you reply\n• Do not answer the implied emotion as though it were certain.',
+      perspective: analysis,
     });
   });
 

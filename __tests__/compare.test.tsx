@@ -6,7 +6,7 @@ import { listRewrites, resetHistoryForTests } from '../src/services/historyServi
 import { fetchRewrites } from '../src/services/rewriteApi';
 import { useSessionStore } from '../src/store/sessionStore';
 import { useSettingsStore } from '../src/store/settingsStore';
-import type { RewriteOption } from '../src/types/rewrite';
+import type { CommunicationAnalysis, RewriteOption } from '../src/types/rewrite';
 
 jest.mock('@react-native-async-storage/async-storage', () =>
   require('@react-native-async-storage/async-storage/jest/async-storage-mock'),
@@ -34,6 +34,28 @@ const { router } = jest.requireMock('expo-router') as {
 };
 const Clipboard = jest.requireMock('expo-clipboard') as {
   setStringAsync: jest.Mock;
+};
+
+const analysis: CommunicationAnalysis = {
+  possibleMeanings: [
+    {
+      title: 'They may be frustrated',
+      confidence: 'high',
+      explanation: 'The repeated wording suggests this may connect to an earlier disappointment.',
+    },
+    {
+      title: 'They may want reassurance',
+      confidence: 'medium',
+      explanation: 'The accusation may be an indirect request for reliability.',
+    },
+    {
+      title: 'They may only want an explanation',
+      confidence: 'low',
+      explanation: 'The message is brief, so a practical reading remains possible.',
+    },
+  ],
+  whatWeCannotKnow: ['Whether they want an apology, an explanation, or a concrete new plan.'],
+  watchOutFor: ['Defending yourself immediately could make them feel dismissed.'],
 };
 
 const rewriteOptions: RewriteOption[] = [
@@ -82,6 +104,7 @@ describe('compare screen', () => {
       understanding: 'calm',
       results: rewriteOptions,
       perspective: null,
+      analysis,
       loading: false,
       error: null,
     });
@@ -97,20 +120,32 @@ describe('compare screen', () => {
     expect(queryByText('Finding options for you...')).toBeNull();
   });
 
-  it('shows perspective card when intent is missing', () => {
+  it('renders possible meanings, explicit uncertainty and reply hazards', () => {
+    const { getByText } = render(<CompareScreen />);
+
+    expect(getByText('See the situation clearly')).toBeTruthy();
+    expect(getByText('What might be happening')).toBeTruthy();
+    expect(getByText('They may be frustrated')).toBeTruthy();
+    expect(getByText('More likely')).toBeTruthy();
+    expect(getByText('What we cannot know')).toBeTruthy();
+    expect(getByText('Whether they want an apology, an explanation, or a concrete new plan.')).toBeTruthy();
+    expect(getByText('Watch out for')).toBeTruthy();
+    expect(getByText('Defending yourself immediately could make them feel dismissed.')).toBeTruthy();
+    expect(getByText('Choose how to respond')).toBeTruthy();
+  });
+
+  it('falls back to the legacy perspective card when structured analysis is absent', () => {
     useSessionStore.setState({
       intent: 'missing',
       understanding: null,
+      analysis: null,
       perspective: 'They might be protecting themselves rather than dismissing you.',
     });
 
     const { getByText } = render(<CompareScreen />);
 
-    expect(getByText('Before you reply')).toBeTruthy();
     expect(getByText('What you might be missing')).toBeTruthy();
-    expect(
-      getByText('They might be protecting themselves rather than dismissing you.'),
-    ).toBeTruthy();
+    expect(getByText('They might be protecting themselves rather than dismissing you.')).toBeTruthy();
   });
 
   it('shows why a reply may work and its understanding score', () => {
@@ -125,7 +160,7 @@ describe('compare screen', () => {
     const { getAllByText } = render(<CompareScreen />);
 
     fireEvent.press(getAllByText('Copy')[0]);
-    fireEvent.press(getAllByText('Send back')[1]);
+    fireEvent.press(getAllByText('Use this reply')[1]);
 
     await waitFor(() => {
       expect(Clipboard.setStringAsync).toHaveBeenCalledWith(rewriteOptions[0].text);
@@ -164,11 +199,12 @@ describe('compare screen', () => {
     expect(records.some((record) => record.fullText === rewriteOptions[0].text)).toBe(false);
   });
 
-  it('regenerates by calling rewrite API with current params', async () => {
+  it('regenerates and stores the refreshed structured analysis', async () => {
     (fetchRewrites as jest.Mock).mockResolvedValue({
       success: true,
-      perspective: null,
-      interpretations: [],
+      analysis,
+      responses: rewriteOptions,
+      perspective: analysis,
       options: rewriteOptions,
     });
 
@@ -185,6 +221,8 @@ describe('compare screen', () => {
         }),
       );
     });
+
+    expect(useSessionStore.getState().analysis).toEqual(analysis);
   });
 
   it('goes back when the back button is pressed and there is back-history', () => {
