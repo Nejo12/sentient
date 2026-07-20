@@ -16,6 +16,12 @@ export interface MessageInterpretation {
   explanation: string;
 }
 
+export interface CommunicationAnalysis {
+  possibleMeanings: MessageInterpretation[];
+  whatWeCannotKnow: string[];
+  watchOutFor: string[];
+}
+
 export interface RewriteOption {
   label: string;
   tag: string;
