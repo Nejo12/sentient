@@ -2,12 +2,14 @@ import { Redirect, router } from 'expo-router';
 import { useShareIntentContext } from 'expo-share-intent';
 import { useEffect, useState } from 'react';
 
+import { isOnboardingComplete } from '../src/services/onboardingStorage';
 import { isSetupComplete } from '../src/services/setupStorage';
 
 export default function Index() {
   const { hasShareIntent, isReady: shareIntentReady } = useShareIntentContext();
   const [ready, setReady] = useState(false);
-  const [complete, setComplete] = useState(false);
+  const [onboardingComplete, setOnboardingComplete] = useState(false);
+  const [setupComplete, setSetupCompleteState] = useState(false);
 
   useEffect(() => {
     if (!shareIntentReady || !hasShareIntent) {
@@ -18,10 +20,13 @@ export default function Index() {
   }, [hasShareIntent, shareIntentReady]);
 
   useEffect(() => {
-    void isSetupComplete().then((value) => {
-      setComplete(value);
-      setReady(true);
-    });
+    void Promise.all([isOnboardingComplete(), isSetupComplete()]).then(
+      ([onboardingDone, setupDone]) => {
+        setOnboardingComplete(onboardingDone);
+        setSetupCompleteState(setupDone);
+        setReady(true);
+      },
+    );
   }, []);
 
   if (!ready) {
@@ -32,7 +37,11 @@ export default function Index() {
     return null;
   }
 
-  if (!complete) {
+  if (!onboardingComplete) {
+    return <Redirect href="/onboarding" />;
+  }
+
+  if (!setupComplete) {
     return <Redirect href="/setup" />;
   }
 
