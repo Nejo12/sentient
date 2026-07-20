@@ -2,7 +2,7 @@ import { AlertTriangle, HelpCircle, Search } from 'lucide-react-native';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { strings } from '../constants/strings';
-import { colors, radii, spacing } from '../theme/tokens';
+import { colors, spacing } from '../theme/tokens';
 import { fonts } from '../theme/typography';
 import type { CommunicationAnalysis, InterpretationConfidence } from '../types/rewrite';
 import { Card } from './Card';

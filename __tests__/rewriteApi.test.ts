@@ -2,6 +2,10 @@ import { strings } from '../src/constants/strings';
 import { fetchRewrites } from '../src/services/rewriteApi';
 import { ensureSupabaseSession } from '../src/services/supabase';
 
+jest.mock('@react-native-async-storage/async-storage', () =>
+  require('@react-native-async-storage/async-storage/jest/async-storage-mock'),
+);
+
 jest.mock('../src/services/supabase', () => ({
   ensureSupabaseSession: jest.fn(),
 }));
