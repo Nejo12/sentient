@@ -4,17 +4,23 @@ The diagnostics screen is an internal operations tool. It displays configuration
 
 ## Open the screen
 
-In a development build, open the route directly:
+In a development build, open the route directly.
+
+Preferred command:
 
 ```bash
-npx uri-scheme open sentient://diagnostics --ios
+npx uri-scheme open sentient:///diagnostics --ios
 ```
 
-For Android:
+The triple slash matters: `sentient:///diagnostics` treats `diagnostics` as a route path. The app also normalises the older `sentient://diagnostics` host-style form, but the path-style form is clearer and more portable.
+
+For Android, first make sure an Android emulator or connected Android device is running, then use:
 
 ```bash
-npx uri-scheme open sentient://diagnostics --android
+npx uri-scheme open sentient:///diagnostics --android
 ```
+
+Running the Android command without an active Android target may produce no visible result.
 
 The route can also be opened from Expo Router with `router.push('/diagnostics')` while developing.
 
