@@ -1,5 +1,10 @@
 import { strings } from '../constants/strings';
-import type { Intent, RewriteOption, Understanding } from '../types/rewrite';
+import type {
+  Intent,
+  MessageInterpretation,
+  RewriteOption,
+  Understanding,
+} from '../types/rewrite';
 import { ensureSupabaseSession } from './supabase';
 
 export interface FetchRewritesParams {
@@ -12,7 +17,7 @@ export interface FetchRewritesParams {
 
 export type FetchRewritesSuccess = {
   success: true;
-  perspective: string | null;
+  interpretations: MessageInterpretation[];
   options: RewriteOption[];
 };
 
@@ -108,13 +113,13 @@ export async function fetchRewrites(
     }
 
     const data = (await response.json()) as {
-      perspective?: string | null;
+      interpretations?: MessageInterpretation[];
       options: RewriteOption[];
     };
 
     return {
       success: true,
-      perspective: data.perspective ?? null,
+      interpretations: data.interpretations ?? [],
       options: data.options,
     };
   } catch {
