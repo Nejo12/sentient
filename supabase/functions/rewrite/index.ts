@@ -15,12 +15,10 @@ const SEVERE_MODERATION_CATEGORIES = [
 
 const corsHeaders: Record<string, string> = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers':
-    'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
 type Intent = 'do' | 'missing';
-type Confidence = 'high' | 'medium' | 'low';
 type Understanding =
   | 'calm'
   | 'confident'
@@ -28,6 +26,7 @@ type Understanding =
   | 'compassionate'
   | 'firm'
   | 'professional';
+type Confidence = 'high' | 'medium' | 'low';
 
 interface RewriteRequest {
   capturedMessage?: string;
@@ -37,13 +36,19 @@ interface RewriteRequest {
   contactName?: string | null;
 }
 
-interface MessageInterpretation {
+interface Meaning {
   title: string;
   confidence: Confidence;
   explanation: string;
 }
 
-interface RewriteOption {
+interface CommunicationAnalysis {
+  possibleMeanings: Meaning[];
+  whatWeCannotKnow: string[];
+  watchOutFor: string[];
+}
+
+interface ResponseOption {
   label: string;
   tag: string;
   text: string;
@@ -54,8 +59,8 @@ interface RewriteOption {
 }
 
 interface RewriteResponse {
-  interpretations: MessageInterpretation[];
-  options: RewriteOption[];
+  analysis: CommunicationAnalysis;
+  responses: ResponseOption[];
 }
 
 const UNDERSTANDING_VALUES: Understanding[] = [
@@ -75,29 +80,27 @@ function jsonResponse(body: unknown, status = 200): Response {
 }
 
 function buildSystemPrompt(intent: Intent, understanding: Understanding | null): string {
-  const outcome =
+  const goal =
     intent === 'missing'
-      ? 'help the user respond while accounting for what they may be overlooking'
-      : `help the user be understood as ${understanding}`;
+      ? 'Help the user pause, interpret cautiously, and reply without escalating.'
+      : `Help the user reply so they are likely to be understood as ${understanding}.`;
 
   return [
-    'You are Sentient, a communication-intelligence assistant.',
-    'Analyse the message cautiously before drafting a reply.',
-    'Never claim to know the sender’s internal state. Use may, might and could.',
-    `The user wants to ${outcome}.`,
-    'Return strict JSON with exactly this shape:',
-    '{ interpretations: [{ title, confidence, explanation }], options: [{ label, tag, text, recommended, rationale, understandingScore, risks }] }.',
-    'Return exactly 3 interpretations and exactly 3 options.',
-    'Interpretation confidence must be high, medium or low and means textual plausibility, not certainty about a person.',
-    'Mark exactly one option recommended true.',
-    'understandingScore must be an integer from 0 to 100 based on clarity, tone, specificity and assumption risk.',
-    'risks must be an array with zero to two short communication trade-offs.',
-    'rationale must briefly explain why the reply may work.',
-    'Never diagnose, moralise, mention AI or fabricate context. Use concise en-GB language.',
+    'You are Sentient, a communication-intelligence system. Optimise for successful mutual understanding, not merely better wording.',
+    goal,
+    'Return only JSON with exactly this top-level shape:',
+    '{"analysis":{"possibleMeanings":[{"title":string,"confidence":"high"|"medium"|"low","explanation":string}],"whatWeCannotKnow":string[],"watchOutFor":string[]},"responses":[{"label":string,"tag":string,"text":string,"recommended":boolean,"rationale":string,"understandingScore":number,"risks":string[]}]}',
+    'Provide exactly 3 possibleMeanings and exactly 3 responses. Mark exactly one response recommended.',
+    'Possible meanings are plausible readings, never facts about the sender. Confidence means textual support, not certainty about a person.',
+    'whatWeCannotKnow identifies missing context or internal states that cannot be inferred from the message alone.',
+    'watchOutFor contains concise communication hazards relevant before replying.',
+    'understandingScore is an estimate from 0 to 100 of clarity and likely interpretability, not an objective measurement.',
+    'Do not diagnose, mind-read, fabricate relationship history, or claim hidden motives. Use cautious language such as may, might, or could.',
+    'Keep rationales and risks concise. Use natural en-GB English. Never mention AI.',
   ].join(' ');
 }
 
-function isInterpretation(value: unknown): value is MessageInterpretation {
+function isMeaning(value: unknown): value is Meaning {
   if (typeof value !== 'object' || value === null) return false;
   const item = value as Record<string, unknown>;
   return (
@@ -107,41 +110,45 @@ function isInterpretation(value: unknown): value is MessageInterpretation {
   );
 }
 
-function isOption(value: unknown): value is RewriteOption {
+function isStringArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every((item) => typeof item === 'string');
+}
+
+function isResponseOption(value: unknown): value is ResponseOption {
   if (typeof value !== 'object' || value === null) return false;
-  const item = value as Record<string, unknown>;
+  const option = value as Record<string, unknown>;
   return (
-    typeof item.label === 'string' &&
-    typeof item.tag === 'string' &&
-    typeof item.text === 'string' &&
-    typeof item.recommended === 'boolean' &&
-    typeof item.rationale === 'string' &&
-    typeof item.understandingScore === 'number' &&
-    Number.isInteger(item.understandingScore) &&
-    item.understandingScore >= 0 &&
-    item.understandingScore <= 100 &&
-    Array.isArray(item.risks) &&
-    item.risks.every((risk) => typeof risk === 'string')
+    typeof option.label === 'string' &&
+    typeof option.tag === 'string' &&
+    typeof option.text === 'string' &&
+    typeof option.recommended === 'boolean' &&
+    typeof option.rationale === 'string' &&
+    typeof option.understandingScore === 'number' &&
+    option.understandingScore >= 0 &&
+    option.understandingScore <= 100 &&
+    isStringArray(option.risks)
   );
 }
 
-function parseResponse(raw: unknown): RewriteResponse | null {
+function parseRewriteResponse(raw: unknown): RewriteResponse | null {
   if (typeof raw !== 'object' || raw === null) return null;
   const parsed = raw as Record<string, unknown>;
-  if (
-    !Array.isArray(parsed.interpretations) ||
-    parsed.interpretations.length !== 3 ||
-    !parsed.interpretations.every(isInterpretation) ||
-    !Array.isArray(parsed.options) ||
-    parsed.options.length !== 3 ||
-    !parsed.options.every(isOption)
-  ) {
-    return null;
-  }
-  if (parsed.options.filter((option) => option.recommended).length !== 1) return null;
+  const analysis = parsed.analysis as Record<string, unknown> | undefined;
+  if (!analysis || typeof analysis !== 'object') return null;
+  if (!Array.isArray(analysis.possibleMeanings) || analysis.possibleMeanings.length !== 3) return null;
+  if (!analysis.possibleMeanings.every(isMeaning)) return null;
+  if (!isStringArray(analysis.whatWeCannotKnow) || !isStringArray(analysis.watchOutFor)) return null;
+  if (!Array.isArray(parsed.responses) || parsed.responses.length !== 3) return null;
+  if (!parsed.responses.every(isResponseOption)) return null;
+  if (parsed.responses.filter((option) => option.recommended).length !== 1) return null;
+
   return {
-    interpretations: parsed.interpretations,
-    options: parsed.options,
+    analysis: {
+      possibleMeanings: analysis.possibleMeanings,
+      whatWeCannotKnow: analysis.whatWeCannotKnow,
+      watchOutFor: analysis.watchOutFor,
+    },
+    responses: parsed.responses,
   };
 }
 
@@ -151,11 +158,11 @@ async function authenticateRequest(req: Request): Promise<string | null> {
   const authorization = req.headers.get('Authorization');
   if (!supabaseUrl || !anonKey || !authorization?.startsWith('Bearer ')) return null;
 
-  const client = createClient(supabaseUrl, anonKey, {
+  const userClient = createClient(supabaseUrl, anonKey, {
     global: { headers: { Authorization: authorization } },
     auth: { persistSession: false, autoRefreshToken: false },
   });
-  const { data, error } = await client.auth.getUser();
+  const { data, error } = await userClient.auth.getUser();
   return error || !data.user ? null : data.user.id;
 }
 
@@ -193,14 +200,7 @@ serve(async (req) => {
     return jsonResponse({ error: 'Invalid JSON body' }, 400);
   }
 
-  const {
-    capturedMessage,
-    roughDraft = null,
-    intent,
-    understanding = null,
-    contactName = null,
-  } = body;
-
+  const { capturedMessage, roughDraft = null, intent, understanding = null, contactName = null } = body;
   if (!capturedMessage?.trim()) return jsonResponse({ error: 'capturedMessage is required' }, 400);
   if (intent !== 'do' && intent !== 'missing') return jsonResponse({ error: 'intent must be do or missing' }, 400);
   if (intent === 'do' && (!understanding || !UNDERSTANDING_VALUES.includes(understanding))) {
@@ -251,10 +251,9 @@ serve(async (req) => {
       return jsonResponse({ error: 'Invalid model response' }, 502);
     }
 
-    const response = parseResponse(parsed);
-    return response
-      ? jsonResponse(response)
-      : jsonResponse({ error: 'Model returned invalid communication analysis' }, 502);
+    const response = parseRewriteResponse(parsed);
+    if (!response) return jsonResponse({ error: 'Model returned invalid communication analysis' }, 502);
+    return jsonResponse(response);
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Rewrite request failed';
     console.error('rewrite function error:', message);
