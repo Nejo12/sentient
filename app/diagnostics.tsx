@@ -17,7 +17,7 @@ import {
 import { colors, radii, spacing } from '../src/theme/tokens';
 import { fonts } from '../src/theme/typography';
 
-const GROUPS: Array<{ key: DiagnosticGroup; label: string }> = [
+const GROUPS: { key: DiagnosticGroup; label: string }[] = [
   { key: 'configuration', label: 'Configuration' },
   { key: 'services', label: 'Live services' },
   { key: 'activity', label: 'Activity' },
