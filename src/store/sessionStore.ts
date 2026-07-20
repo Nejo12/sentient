@@ -3,6 +3,7 @@ import { create } from 'zustand';
 import type {
   CommunicationAnalysis,
   Intent,
+  MessageInterpretation,
   RewriteOption,
   Understanding,
 } from '../types/rewrite';
@@ -14,6 +15,8 @@ interface SessionState {
   roughDraft: string;
   intent: Intent | null;
   understanding: Understanding | null;
+  perspective: string | null;
+  interpretations: MessageInterpretation[];
   analysis: CommunicationAnalysis | null;
   results: RewriteOption[];
   chosenReply: string;
@@ -23,16 +26,15 @@ interface SessionState {
 }
 
 interface SessionActions {
-  setCapturedContext: (
-    message: string,
-    contactName: string,
-    sourceApp: string,
-  ) => void;
+  setCapturedContext: (message: string, contactName: string, sourceApp: string) => void;
   setCapturedMessage: (message: string) => void;
   setRoughDraft: (text: string) => void;
   setIntent: (intent: Intent) => void;
   setUnderstanding: (understanding: Understanding) => void;
-  setResults: (results: RewriteOption[], analysis: CommunicationAnalysis) => void;
+  setResults: (
+    results: RewriteOption[],
+    context?: CommunicationAnalysis | MessageInterpretation[] | string,
+  ) => void;
   setChosenReply: (text: string) => void;
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
@@ -48,6 +50,8 @@ const initialState: SessionState = {
   roughDraft: '',
   intent: null,
   understanding: null,
+  perspective: null,
+  interpretations: [],
   analysis: null,
   results: [],
   chosenReply: '',
@@ -55,6 +59,16 @@ const initialState: SessionState = {
   error: null,
   showUnderstandingGrid: false,
 };
+
+function isCommunicationAnalysis(value: unknown): value is CommunicationAnalysis {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    Array.isArray((value as CommunicationAnalysis).possibleMeanings) &&
+    Array.isArray((value as CommunicationAnalysis).whatWeCannotKnow) &&
+    Array.isArray((value as CommunicationAnalysis).watchOutFor)
+  );
+}
 
 export const useSessionStore = create<SessionStore>((set) => ({
   ...initialState,
@@ -69,7 +83,13 @@ export const useSessionStore = create<SessionStore>((set) => ({
       ...(intent === 'missing' ? { understanding: null } : {}),
     }),
   setUnderstanding: (understanding) => set({ understanding }),
-  setResults: (results, analysis) => set({ results, analysis }),
+  setResults: (results, context) =>
+    set({
+      results,
+      perspective: typeof context === 'string' ? context : null,
+      interpretations: Array.isArray(context) ? context : [],
+      analysis: isCommunicationAnalysis(context) ? context : null,
+    }),
   setChosenReply: (text) => set({ chosenReply: text }),
   setLoading: (loading) => set({ loading }),
   setError: (error) => set({ error }),
