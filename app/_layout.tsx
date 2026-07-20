@@ -37,7 +37,6 @@ export default function RootLayout() {
     SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
   });
 
-  // Expo Router uses Error Boundaries to catch errors in the navigation tree.
   useEffect(() => {
     if (error) throw error;
   }, [error]);
@@ -61,7 +60,6 @@ function RootLayoutNav() {
   return (
     <ShareIntentProvider
       options={{
-        // Keep shared text when switching to the share extension and back.
         resetOnBackground: false,
       }}
     >
@@ -69,6 +67,7 @@ function RootLayoutNav() {
       <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
         <Stack>
           <Stack.Screen name="index" options={{ headerShown: false }} />
+          <Stack.Screen name="onboarding" options={{ headerShown: false }} />
           <Stack.Screen name="setup" options={{ headerShown: false }} />
           <Stack.Screen name="auth/sign-in" options={{ title: 'Sign in' }} />
           <Stack.Screen name="auth/reset-password" options={{ title: 'Reset password' }} />
