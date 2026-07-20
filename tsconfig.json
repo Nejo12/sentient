@@ -2,7 +2,6 @@
   "extends": "expo/tsconfig.base",
   "compilerOptions": {
     "strict": true,
-    "types": ["jest"],
     "paths": {
       "@/*": [
         "./*"
@@ -16,12 +15,11 @@
     "components/**/*.tsx",
     "src/**/*.ts",
     "src/**/*.tsx",
-    "__tests__/**/*.ts",
-    "__tests__/**/*.tsx",
     ".expo/types/**/*.ts",
     "expo-env.d.ts"
   ],
   "exclude": [
+    "__tests__/**",
     "supabase/functions/**",
     "node_modules"
   ]
