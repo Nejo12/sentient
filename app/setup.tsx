@@ -2,8 +2,8 @@ import { router } from 'expo-router';
 import { Check, Layers, Lock, Share } from 'lucide-react-native';
 import { useCallback, useEffect, useState } from 'react';
 import {
+  Alert,
   AppState,
-  Linking,
   Platform,
   Pressable,
   ScrollView,
@@ -93,11 +93,23 @@ export default function SetupScreen() {
     return () => subscription.remove();
   }, [refreshOverlayDone]);
 
-  const handleShareRowPress = useCallback(async () => {
-    await Linking.openSettings();
+  const markShareSetupDone = useCallback(async () => {
     await setShareSetupDone();
     setShareDone(true);
   }, []);
+
+  const handleShareRowPress = useCallback(() => {
+    Alert.alert(strings.setup.shareHelpTitle, strings.setup.shareHelpBody, [
+      {
+        text: strings.setup.shareHelpLater,
+        style: 'cancel',
+      },
+      {
+        text: strings.setup.shareHelpDone,
+        onPress: () => void markShareSetupDone(),
+      },
+    ]);
+  }, [markShareSetupDone]);
 
   const handleOverlayRowPress = useCallback(async () => {
     await requestOverlayPermission();
@@ -231,7 +243,7 @@ const styles = StyleSheet.create({
     lineHeight: 21,
     color: colors.ink72,
     textAlign: 'center',
-    maxWidth: 240,
+    maxWidth: 280,
   },
   permissionPanel: {
     borderRadius: 18,
