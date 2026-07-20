@@ -1,5 +1,5 @@
 import { router, useFocusEffect } from 'expo-router';
-import { Search, Settings } from 'lucide-react-native';
+import { ChevronDown, ChevronUp, Search, Settings } from 'lucide-react-native';
 import { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -83,12 +83,20 @@ function groupRewrites(records: RewriteRecord[]): HistorySection[] {
 }
 
 function HistoryCard({ record }: { record: RewriteRecord }) {
+  const [expanded, setExpanded] = useState(false);
   const palette = avatarPaletteForName(record.contactName || record.sourceApp || 'R');
   const initial = (record.contactName.trim().charAt(0) || record.sourceApp.trim().charAt(0) || 'R').toUpperCase();
 
   return (
-    <View style={styles.card}>
-      <View style={[styles.avatar, { backgroundColor: palette.bg }]}>
+    <Pressable
+      accessibilityHint={expanded ? strings.history.collapseHint : strings.history.expandHint}
+      accessibilityLabel={`${getRewriteTitle(record)}. ${getPillLabel(record)}. ${record.fullText}`}
+      accessibilityRole="button"
+      accessibilityState={{ expanded }}
+      onPress={() => setExpanded((current) => !current)}
+      style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
+    >
+      <View style={[styles.avatar, { backgroundColor: palette.bg }]}> 
         <Text style={[styles.avatarInitial, { color: palette.fg }]}>{initial}</Text>
       </View>
 
@@ -102,11 +110,23 @@ function HistoryCard({ record }: { record: RewriteRecord }) {
           </View>
           <Text style={styles.time}>{formatRewriteTime(record.createdAt)}</Text>
         </View>
-        <Text numberOfLines={1} style={styles.snippet}>
-          {record.snippet}
+
+        <Text numberOfLines={expanded ? undefined : 2} style={styles.snippet}>
+          {record.fullText}
         </Text>
+
+        <View style={styles.expandRow}>
+          <Text style={styles.expandLabel}>
+            {expanded ? strings.history.collapseHint : strings.history.expandHint}
+          </Text>
+          {expanded ? (
+            <ChevronUp color={colors.oxblood} size={16} strokeWidth={2} />
+          ) : (
+            <ChevronDown color={colors.oxblood} size={16} strokeWidth={2} />
+          )}
+        </View>
       </View>
-    </View>
+    </Pressable>
   );
 }
 
@@ -187,7 +207,10 @@ export default function HistoryScreen() {
           ListEmptyComponent={<Text style={styles.empty}>{emptyMessage}</Text>}
           renderItem={({ item }) => <HistoryCard record={item} />}
           renderSectionHeader={({ section: { title } }) => (
-            <Text style={styles.sectionLabel}>{title}</Text>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionLabel}>{title}</Text>
+              <View style={styles.sectionRule} />
+            </View>
           )}
           sections={sections}
           showsVerticalScrollIndicator={false}
@@ -231,8 +254,8 @@ const styles = StyleSheet.create({
     lineHeight: 28,
   },
   settingsButton: {
-    width: 36,
-    height: 36,
+    width: 44,
+    height: 44,
     borderRadius: radii.pill,
     borderWidth: 1,
     borderColor: colors.border,
@@ -270,14 +293,24 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     justifyContent: 'center',
   },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[3],
+    marginTop: spacing[3],
+    marginBottom: spacing[2],
+  },
   sectionLabel: {
     color: colors.ink40,
     fontFamily: fonts.sansMedium,
     fontWeight: '500',
     fontSize: 11,
     lineHeight: 16,
-    marginTop: spacing[2],
-    marginBottom: spacing[2],
+  },
+  sectionRule: {
+    flex: 1,
+    height: 1,
+    backgroundColor: colors.border,
   },
   card: {
     flexDirection: 'row',
@@ -287,8 +320,13 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     borderRadius: radii.md,
     backgroundColor: colors.paperStrong,
-    padding: spacing[3],
+    paddingHorizontal: spacing[3],
+    paddingVertical: spacing[4],
     marginBottom: spacing[2],
+  },
+  cardPressed: {
+    opacity: 0.86,
+    transform: [{ scale: 0.995 }],
   },
   avatar: {
     width: 38,
@@ -305,7 +343,7 @@ const styles = StyleSheet.create({
   },
   cardContent: {
     flex: 1,
-    gap: spacing[1],
+    gap: spacing[2],
   },
   cardHeader: {
     flexDirection: 'row',
@@ -339,8 +377,22 @@ const styles = StyleSheet.create({
     color: colors.ink55,
     fontFamily: fonts.sans,
     fontWeight: '400',
-    fontSize: 12.5,
-    lineHeight: 18,
+    fontSize: 13,
+    lineHeight: 20,
+  },
+  expandRow: {
+    minHeight: 24,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing[2],
+  },
+  expandLabel: {
+    color: colors.oxblood,
+    fontFamily: fonts.sansMedium,
+    fontWeight: '500',
+    fontSize: 11,
+    lineHeight: 16,
   },
   empty: {
     color: colors.ink55,
