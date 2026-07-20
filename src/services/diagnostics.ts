@@ -65,9 +65,21 @@ async function runEdgeDiagnostic(accessToken: string): Promise<DiagnosticCheck[]
       contractVersion?: string;
       model?: string;
       latencyMs?: number;
+      code?: string;
       openai?: { state?: string; detail?: string };
       error?: string;
     };
+
+    if (response.status === 403 && data.code === 'DIAGNOSTICS_ADMIN_REQUIRED') {
+      return [{
+        id: 'admin-access',
+        label: 'Diagnostics access',
+        state: 'error',
+        group: 'services',
+        detail: 'Sign in with the authorised Sentient administrator account to run production diagnostics.',
+        latencyMs,
+      }];
+    }
 
     const edge: DiagnosticCheck = {
       id: 'edge',
@@ -123,7 +135,7 @@ export async function runDiagnostics(): Promise<DiagnosticReport> {
     state: session?.access_token ? 'ok' : 'error',
     group: 'services',
     detail: session?.user?.is_anonymous
-      ? 'Healthy anonymous session.'
+      ? 'Healthy anonymous session. Admin diagnostics still require a named administrator sign-in.'
       : session?.user?.email
         ? `Healthy signed-in session for ${session.user.email}.`
         : 'No valid session.',
