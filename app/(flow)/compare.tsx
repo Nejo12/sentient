@@ -1,6 +1,6 @@
 import * as Clipboard from 'expo-clipboard';
 import { router } from 'expo-router';
-import { ArrowLeft, ChevronDown, ChevronUp } from 'lucide-react-native';
+import { ArrowLeft, RefreshCw } from 'lucide-react-native';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -10,6 +10,8 @@ import { PerspectiveCard } from '../../src/components/PerspectiveCard';
 import { Pill } from '../../src/components/Pill';
 import { QuickReplyCard } from '../../src/components/QuickReplyCard';
 import { ResultCard } from '../../src/components/ResultCard';
+import { DisclosureSection } from '../../src/components/adaptive/DisclosureSection';
+import { ProgressLoader } from '../../src/components/adaptive/ProgressLoader';
 import { strings } from '../../src/constants/strings';
 import { UNDERSTANDING_OPTIONS } from '../../src/constants/understanding';
 import { canRewrite, incrementRewriteCount } from '../../src/services/entitlements';
@@ -46,10 +48,12 @@ export default function CompareScreen() {
   const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
   const [understandingOpen, setUnderstandingOpen] = useState(false);
   const [alternativesOpen, setAlternativesOpen] = useState(false);
+  const requestSequence = useRef(0);
   const copyFeedbackTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(
     () => () => {
+      requestSequence.current += 1;
       if (copyFeedbackTimeout.current) {
         clearTimeout(copyFeedbackTimeout.current);
       }
@@ -95,16 +99,22 @@ export default function CompareScreen() {
     intent === 'missing' ? strings.compare.regenerateMissing : strings.compare.regenerateDo;
 
   const onRegenerate = async () => {
-    if (!intent) {
+    if (!intent || loading) {
       return;
     }
 
-    setError(null);
-    setLoading(true);
+    const requestId = requestSequence.current + 1;
+    requestSequence.current = requestId;
+
     setUnderstandingOpen(false);
     setAlternativesOpen(false);
+    setError(null);
+    setLoading(true);
 
     if (!(await canRewrite())) {
+      if (requestId !== requestSequence.current) {
+        return;
+      }
       setError(`${strings.pro.limitReached} ${strings.pro.nudge}`);
       setLoading(false);
       return;
@@ -118,6 +128,10 @@ export default function CompareScreen() {
       contactName,
     });
 
+    if (requestId !== requestSequence.current) {
+      return;
+    }
+
     if (!response.success) {
       setError(response.message || strings.errors.network);
       setLoading(false);
@@ -125,6 +139,9 @@ export default function CompareScreen() {
     }
 
     await incrementRewriteCount();
+    if (requestId !== requestSequence.current) {
+      return;
+    }
     setResults(response.options, response.analysis);
     setLoading(false);
   };
@@ -161,26 +178,42 @@ export default function CompareScreen() {
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.headerRow}>
-          <Pressable accessibilityRole="button" onPress={goBackOrHome} style={styles.backButton}>
+          <Pressable
+            accessibilityLabel="Go back"
+            accessibilityRole="button"
+            hitSlop={8}
+            onPress={goBackOrHome}
+            style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}
+          >
             <ArrowLeft color={colors.ink55} size={16} strokeWidth={2} />
           </Pressable>
           <Text style={styles.headerTitle}>{headerTitle}</Text>
           <Pill variant="neutral">Adaptive</Pill>
         </View>
 
-        {copyFeedback ? <Text style={styles.copyFeedback}>{copyFeedback}</Text> : null}
-        {error ? <Text style={styles.error}>{error}</Text> : null}
+        {copyFeedback ? (
+          <Text accessibilityLiveRegion="polite" style={styles.copyFeedback}>
+            {copyFeedback}
+          </Text>
+        ) : null}
+
+        {error && !loading ? (
+          <View accessibilityLiveRegion="assertive" style={styles.errorCard}>
+            <Text style={styles.errorTitle}>We couldn&apos;t finish analyzing this message.</Text>
+            <Text style={styles.errorBody}>{error}</Text>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => void onRegenerate()}
+              style={({ pressed }) => [styles.retryButton, pressed && styles.pressed]}
+            >
+              <RefreshCw color={colors.oxblood} size={15} strokeWidth={2} />
+              <Text style={styles.retryText}>Try again</Text>
+            </Pressable>
+          </View>
+        ) : null}
 
         {loading ? (
-          <View style={styles.loadingBlock}>
-            <Text style={styles.loadingTitle}>Understanding the message…</Text>
-            <Text style={styles.loadingBody}>Considering context, ambiguity, and the clearest safe reply.</Text>
-            <View style={styles.skeletonCard} testID="compare-skeleton-card">
-              <View style={[styles.skeletonLine, styles.skeletonTitle]} />
-              <View style={[styles.skeletonLine, styles.skeletonBody]} />
-              <View style={[styles.skeletonLine, styles.skeletonBodyShort]} />
-            </View>
-          </View>
+          <ProgressLoader />
         ) : (
           <View style={styles.stack}>
             {recommendedOption ? (
@@ -195,24 +228,15 @@ export default function CompareScreen() {
             ) : null}
 
             {analysis ? (
-              <>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityState={{ expanded: understandingOpen }}
-                  onPress={() => setUnderstandingOpen((current) => !current)}
-                  style={({ pressed }) => [styles.disclosureButton, pressed && styles.pressed]}
-                >
-                  <Text style={styles.disclosureText}>
-                    {understandingOpen ? 'Hide understanding' : 'Understand more'}
-                  </Text>
-                  {understandingOpen ? (
-                    <ChevronUp color={colors.oxblood} size={18} strokeWidth={2} />
-                  ) : (
-                    <ChevronDown color={colors.oxblood} size={18} strokeWidth={2} />
-                  )}
-                </Pressable>
-                {understandingOpen ? <CommunicationAnalysisPanel analysis={analysis} /> : null}
-              </>
+              <DisclosureSection
+                closedLabel="Understand more"
+                expanded={understandingOpen}
+                onToggle={() => setUnderstandingOpen((current) => !current)}
+                openLabel="Hide understanding"
+                testID="understanding-disclosure"
+              >
+                <CommunicationAnalysisPanel analysis={analysis} />
+              </DisclosureSection>
             ) : null}
 
             {!analysis && intent === 'missing' && perspective ? (
@@ -220,44 +244,42 @@ export default function CompareScreen() {
             ) : null}
 
             {alternativeOptions.length ? (
-              <>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityState={{ expanded: alternativesOpen }}
-                  onPress={() => setAlternativesOpen((current) => !current)}
-                  style={({ pressed }) => [styles.disclosureButton, pressed && styles.pressed]}
-                >
-                  <Text style={styles.disclosureText}>
-                    {alternativesOpen ? 'Hide alternatives' : `See ${alternativeOptions.length} other replies`}
-                  </Text>
-                  {alternativesOpen ? (
-                    <ChevronUp color={colors.oxblood} size={18} strokeWidth={2} />
-                  ) : (
-                    <ChevronDown color={colors.oxblood} size={18} strokeWidth={2} />
-                  )}
-                </Pressable>
-
-                {alternativesOpen ? (
-                  <View style={styles.alternativesStack}>
-                    <Text style={styles.responsesHeading}>{strings.analysis.repliesTitle}</Text>
-                    {alternativeOptions.map((option) => (
-                      <ResultCard
-                        key={`${option.label}-${option.tag}-${option.text.slice(0, 16)}`}
-                        onCopy={() => {
-                          void onCopy(option.text);
-                        }}
-                        onSendBack={() => onSendBack(option.text)}
-                        option={option}
-                      />
-                    ))}
-                  </View>
-                ) : null}
-              </>
+              <DisclosureSection
+                closedLabel={`See ${alternativeOptions.length} other replies`}
+                expanded={alternativesOpen}
+                onToggle={() => setAlternativesOpen((current) => !current)}
+                openLabel="Hide alternatives"
+                testID="alternatives-disclosure"
+              >
+                <View style={styles.alternativesStack}>
+                  <Text style={styles.responsesHeading}>{strings.analysis.repliesTitle}</Text>
+                  {alternativeOptions.map((option) => (
+                    <ResultCard
+                      key={`${option.label}-${option.tag}-${option.text.slice(0, 16)}`}
+                      onCopy={() => {
+                        void onCopy(option.text);
+                      }}
+                      onSendBack={() => onSendBack(option.text)}
+                      option={option}
+                    />
+                  ))}
+                </View>
+              </DisclosureSection>
             ) : null}
           </View>
         )}
 
-        <Pressable accessibilityRole="button" onPress={() => void onRegenerate()} style={styles.footerAction}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityState={{ disabled: loading }}
+          disabled={loading}
+          onPress={() => void onRegenerate()}
+          style={({ pressed }) => [
+            styles.footerAction,
+            loading && styles.disabled,
+            pressed && styles.pressed,
+          ]}
+        >
           <Text style={styles.footerActionText}>{regenerateLabel}</Text>
         </Pressable>
       </ScrollView>
@@ -283,8 +305,8 @@ const styles = StyleSheet.create({
     gap: spacing[2],
   },
   backButton: {
-    width: 32,
-    height: 32,
+    width: 44,
+    height: 44,
     borderRadius: radii.pill,
     borderWidth: 1,
     borderColor: colors.border,
@@ -307,12 +329,41 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 16,
   },
-  error: {
-    color: colors.destructive,
-    fontFamily: fonts.sansMedium,
-    fontWeight: '500',
+  errorCard: {
+    gap: spacing[2],
+    borderRadius: radii.lg,
+    borderWidth: 1,
+    borderColor: 'rgba(145, 53, 45, 0.22)',
+    backgroundColor: 'rgba(145, 53, 45, 0.035)',
+    padding: spacing[4],
+  },
+  errorTitle: {
+    color: colors.ink,
+    fontFamily: fonts.sansSemiBold,
+    fontWeight: '600',
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  errorBody: {
+    color: colors.ink55,
+    fontFamily: fonts.sans,
     fontSize: 12,
-    lineHeight: 16,
+    lineHeight: 18,
+  },
+  retryButton: {
+    alignSelf: 'flex-start',
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[2],
+    paddingHorizontal: spacing[2],
+  },
+  retryText: {
+    color: colors.oxblood,
+    fontFamily: fonts.sansSemiBold,
+    fontWeight: '600',
+    fontSize: 13,
+    lineHeight: 18,
   },
   stack: {
     gap: spacing[3],
@@ -327,68 +378,17 @@ const styles = StyleSheet.create({
     fontSize: 23,
     lineHeight: 29,
   },
-  disclosureButton: {
-    minHeight: 46,
-    borderRadius: radii.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.paperSoft,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing[1],
-    paddingHorizontal: spacing[3],
-  },
-  disclosureText: {
-    color: colors.oxblood,
-    fontFamily: fonts.sansSemiBold,
-    fontSize: 13,
-    lineHeight: 18,
-  },
   pressed: {
-    opacity: 0.72,
+    opacity: 0.76,
+    transform: [{ scale: 0.99 }],
   },
-  loadingBlock: {
-    gap: spacing[3],
-    paddingVertical: spacing[5],
-  },
-  loadingTitle: {
-    color: colors.ink,
-    fontFamily: fonts.serif,
-    fontSize: 24,
-    lineHeight: 30,
-  },
-  loadingBody: {
-    color: colors.ink55,
-    fontFamily: fonts.sans,
-    fontSize: 13,
-    lineHeight: 19,
-  },
-  skeletonCard: {
-    borderRadius: radii.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.paperStrong,
-    padding: spacing[4],
-    gap: spacing[2],
-  },
-  skeletonLine: {
-    borderRadius: radii.sm,
-    backgroundColor: '#E5DDD2',
-    height: 12,
-  },
-  skeletonTitle: {
-    width: '44%',
-    height: 14,
-  },
-  skeletonBody: {
-    width: '100%',
-  },
-  skeletonBodyShort: {
-    width: '84%',
+  disabled: {
+    opacity: 0.45,
   },
   footerAction: {
+    minHeight: 44,
     alignSelf: 'center',
+    justifyContent: 'center',
     paddingVertical: spacing[2],
     paddingHorizontal: spacing[2],
   },
