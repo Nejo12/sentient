@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { CommunicationAnalysisPanel } from '../../src/components/CommunicationAnalysisPanel';
 import { PerspectiveCard } from '../../src/components/PerspectiveCard';
 import { Pill } from '../../src/components/Pill';
 import { ResultCard } from '../../src/components/ResultCard';
@@ -33,6 +34,7 @@ export default function CompareScreen() {
     intent,
     understanding,
     perspective,
+    analysis,
     results,
     loading,
     error,
@@ -100,7 +102,7 @@ export default function CompareScreen() {
     }
 
     await incrementRewriteCount();
-    setResults(response.options, response.perspective ?? undefined);
+    setResults(response.options, response.analysis);
     setLoading(false);
   };
 
@@ -116,9 +118,6 @@ export default function CompareScreen() {
       setCopyFeedback(null);
     }, COPY_FEEDBACK_MS);
 
-    // Copying here is the same "I used this reply" signal as copying from
-    // the Send Back screen — it must save to history too, not just that
-    // second screen's copy button.
     if (saveHistory && intent) {
       await saveRewrite({
         contactName,
@@ -162,7 +161,12 @@ export default function CompareScreen() {
           </View>
         ) : (
           <View style={styles.stack}>
-            {intent === 'missing' && perspective ? <PerspectiveCard text={perspective} /> : null}
+            {analysis ? <CommunicationAnalysisPanel analysis={analysis} /> : null}
+            {!analysis && intent === 'missing' && perspective ? (
+              <PerspectiveCard text={perspective} />
+            ) : null}
+
+            <Text style={styles.responsesHeading}>{strings.analysis.repliesTitle}</Text>
 
             {results.map((option) => (
               <ResultCard
@@ -236,6 +240,13 @@ const styles = StyleSheet.create({
   },
   stack: {
     gap: spacing[3],
+  },
+  responsesHeading: {
+    marginTop: spacing[2],
+    color: colors.ink,
+    fontFamily: fonts.serif,
+    fontSize: 23,
+    lineHeight: 29,
   },
   skeletonCard: {
     borderRadius: radii.lg,
