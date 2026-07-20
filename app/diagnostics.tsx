@@ -19,7 +19,7 @@ function StatusIcon({ check }: { check: DiagnosticCheck }) {
 
 export default function DiagnosticsScreen() {
   const [report, setReport] = useState<DiagnosticReport | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
 
   const refresh = useCallback(async () => {
@@ -30,8 +30,24 @@ export default function DiagnosticsScreen() {
   }, []);
 
   useEffect(() => {
-    void refresh();
-  }, [refresh]);
+    let cancelled = false;
+
+    void runDiagnostics()
+      .then((nextReport) => {
+        if (!cancelled) {
+          setReport(nextReport);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const copyReport = useCallback(async () => {
     if (!report) return;
