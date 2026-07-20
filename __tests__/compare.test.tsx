@@ -1,5 +1,5 @@
-import { fireEvent, render, waitFor } from '@testing-library/react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { fireEvent, render, waitFor } from '@testing-library/react-native';
 
 import CompareScreen from '../app/(flow)/compare';
 import { listRewrites, resetHistoryForTests } from '../src/services/historyService';
@@ -111,27 +111,44 @@ describe('compare screen', () => {
     router.canGoBack.mockReturnValue(true);
   });
 
-  it('shows three loading skeleton cards with no spinner', () => {
+  it('shows one focused loading card with meaningful progress copy', () => {
     useSessionStore.setState({ loading: true });
 
-    const { queryByText, getAllByTestId } = render(<CompareScreen />);
+    const { getAllByTestId, getByText } = render(<CompareScreen />);
 
-    expect(getAllByTestId('compare-skeleton-card')).toHaveLength(3);
-    expect(queryByText('Finding options for you...')).toBeNull();
+    expect(getAllByTestId('compare-skeleton-card')).toHaveLength(1);
+    expect(getByText('Understanding the message…')).toBeTruthy();
+    expect(getByText('Considering context, ambiguity, and the clearest safe reply.')).toBeTruthy();
   });
 
-  it('renders possible meanings, explicit uncertainty and reply hazards', () => {
-    const { getByText } = render(<CompareScreen />);
+  it('shows the recommended reply first and keeps analysis collapsed', () => {
+    const { getByText, queryByText } = render(<CompareScreen />);
+
+    expect(getByText('Suggested reply')).toBeTruthy();
+    expect(getByText(rewriteOptions[0].text)).toBeTruthy();
+    expect(getByText('Possible misunderstanding')).toBeTruthy();
+    expect(getByText('Understand more')).toBeTruthy();
+    expect(queryByText('See the situation clearly')).toBeNull();
+    expect(queryByText(rewriteOptions[1].text)).toBeNull();
+  });
+
+  it('progressively reveals meanings, uncertainty and communication risks', () => {
+    const { getByText, queryByText } = render(<CompareScreen />);
+
+    fireEvent.press(getByText('Understand more'));
 
     expect(getByText('See the situation clearly')).toBeTruthy();
     expect(getByText('What might be happening')).toBeTruthy();
     expect(getByText('They may be frustrated')).toBeTruthy();
     expect(getByText('More likely')).toBeTruthy();
+    expect(queryByText('What we cannot know')).toBeNull();
+
+    fireEvent.press(getByText('Tell me more'));
+
     expect(getByText('What we cannot know')).toBeTruthy();
     expect(getByText('Whether they want an apology, an explanation, or a concrete new plan.')).toBeTruthy();
     expect(getByText('Watch out for')).toBeTruthy();
     expect(getByText('Defending yourself immediately could make them feel dismissed.')).toBeTruthy();
-    expect(getByText('Choose how to respond')).toBeTruthy();
   });
 
   it('falls back to the legacy perspective card when structured analysis is absent', () => {
@@ -148,18 +165,31 @@ describe('compare screen', () => {
     expect(getByText('They might be protecting themselves rather than dismissing you.')).toBeTruthy();
   });
 
-  it('shows why a reply may work and its understanding score', () => {
-    const { getAllByText, getByText } = render(<CompareScreen />);
+  it('reveals why the recommended reply may work and its understanding score', () => {
+    const { getByText, queryByText } = render(<CompareScreen />);
 
-    expect(getAllByText('Why this may work')).toHaveLength(3);
+    expect(queryByText('It acknowledges the message and proposes a constructive next step.')).toBeNull();
+    fireEvent.press(getByText('Why this reply?'));
+
     expect(getByText('It acknowledges the message and proposes a constructive next step.')).toBeTruthy();
     expect(getByText('88%')).toBeTruthy();
   });
 
-  it('copies and sends back selected option', async () => {
-    const { getAllByText } = render(<CompareScreen />);
+  it('reveals alternative replies only on request', () => {
+    const { getByText, queryByText } = render(<CompareScreen />);
+
+    expect(queryByText(rewriteOptions[1].text)).toBeNull();
+    fireEvent.press(getByText('See 2 other replies'));
+
+    expect(getByText(rewriteOptions[1].text)).toBeTruthy();
+    expect(getByText(rewriteOptions[2].text)).toBeTruthy();
+  });
+
+  it('copies the recommended reply and sends back an alternative', async () => {
+    const { getAllByText, getByText } = render(<CompareScreen />);
 
     fireEvent.press(getAllByText('Copy')[0]);
+    fireEvent.press(getByText('See 2 other replies'));
     fireEvent.press(getAllByText('Use this reply')[1]);
 
     await waitFor(() => {
@@ -237,6 +267,7 @@ describe('compare screen', () => {
 
   it('falls back to the tab-bar home when the back button is pressed with no back-history', () => {
     router.canGoBack.mockReturnValue(false);
+
     const { getAllByRole } = render(<CompareScreen />);
     fireEvent.press(getAllByRole('button')[0]);
 
