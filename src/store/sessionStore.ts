@@ -14,6 +14,7 @@ interface SessionState {
   roughDraft: string;
   intent: Intent | null;
   understanding: Understanding | null;
+  perspective: string | null;
   interpretations: MessageInterpretation[];
   results: RewriteOption[];
   chosenReply: string;
@@ -34,7 +35,7 @@ interface SessionActions {
   setUnderstanding: (understanding: Understanding) => void;
   setResults: (
     results: RewriteOption[],
-    interpretations?: MessageInterpretation[],
+    context?: MessageInterpretation[] | string,
   ) => void;
   setChosenReply: (text: string) => void;
   setLoading: (loading: boolean) => void;
@@ -51,6 +52,7 @@ const initialState: SessionState = {
   roughDraft: '',
   intent: null,
   understanding: null,
+  perspective: null,
   interpretations: [],
   results: [],
   chosenReply: '',
@@ -72,10 +74,11 @@ export const useSessionStore = create<SessionStore>((set) => ({
       ...(intent === 'missing' ? { understanding: null } : {}),
     }),
   setUnderstanding: (understanding) => set({ understanding }),
-  setResults: (results, interpretations) =>
+  setResults: (results, context) =>
     set({
       results,
-      interpretations: interpretations ?? [],
+      perspective: typeof context === 'string' ? context : null,
+      interpretations: Array.isArray(context) ? context : [],
     }),
   setChosenReply: (text) => set({ chosenReply: text }),
   setLoading: (loading) => set({ loading }),
