@@ -19,8 +19,8 @@ export type FetchRewritesSuccess = {
   success: true;
   analysis: CommunicationAnalysis;
   responses: RewriteOption[];
-  /** Compatibility aliases for the current screens during the contract migration. */
-  perspective: string;
+  /** Compatibility aliases for screens that still call setResults(options, perspective). */
+  perspective: CommunicationAnalysis;
   options: RewriteOption[];
 };
 
@@ -41,22 +41,6 @@ function rewriteUrl(): string {
 function apiKeyHeader(): Record<string, string> {
   const anonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
   return anonKey ? { apikey: anonKey } : {};
-}
-
-function formatAnalysis(analysis: CommunicationAnalysis): string {
-  const meanings = analysis.possibleMeanings
-    .map((item) => `${item.title} (${item.confidence}) — ${item.explanation}`)
-    .join('\n\n');
-  const unknowns = analysis.whatWeCannotKnow.map((item) => `• ${item}`).join('\n');
-  const cautions = analysis.watchOutFor.map((item) => `• ${item}`).join('\n');
-
-  return [
-    meanings && `What may be happening\n${meanings}`,
-    unknowns && `What we cannot know from this message\n${unknowns}`,
-    cautions && `Before you reply\n${cautions}`,
-  ]
-    .filter(Boolean)
-    .join('\n\n');
 }
 
 export async function fetchRewrites(params: FetchRewritesParams): Promise<FetchRewritesResult> {
@@ -115,13 +99,12 @@ export async function fetchRewrites(params: FetchRewritesParams): Promise<FetchR
       analysis: CommunicationAnalysis;
       responses: RewriteOption[];
     };
-    const perspective = formatAnalysis(data.analysis);
 
     return {
       success: true,
       analysis: data.analysis,
       responses: data.responses,
-      perspective,
+      perspective: data.analysis,
       options: data.responses,
     };
   } catch {
