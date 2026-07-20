@@ -9,4 +9,4 @@ port = 54322
 major_version = 15
 
 [functions.rewrite]
-verify_jwt = false
+verify_jwt = true

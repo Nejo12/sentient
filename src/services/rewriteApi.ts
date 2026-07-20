@@ -1,5 +1,6 @@
 import { strings } from '../constants/strings';
 import type { Intent, RewriteOption, Understanding } from '../types/rewrite';
+import { ensureSupabaseSession } from './supabase';
 
 export interface FetchRewritesParams {
   capturedMessage: string;
@@ -31,26 +32,29 @@ function rewriteUrl(): string {
   return `${baseUrl}/functions/v1/rewrite`;
 }
 
-function authHeaders(): Record<string, string> {
+function apiKeyHeader(): Record<string, string> {
   const anonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
-  if (!anonKey) {
-    return {};
-  }
-  return {
-    apikey: anonKey,
-    Authorization: `Bearer ${anonKey}`,
-  };
+  return anonKey ? { apikey: anonKey } : {};
 }
 
 export async function fetchRewrites(
   params: FetchRewritesParams,
 ): Promise<FetchRewritesResult> {
   try {
+    const session = await ensureSupabaseSession();
+    if (!session?.access_token) {
+      return {
+        success: false,
+        message: 'Sentient could not start a secure session. Please try again.',
+      };
+    }
+
     const response = await fetch(rewriteUrl(), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        ...authHeaders(),
+        ...apiKeyHeader(),
+        Authorization: `Bearer ${session.access_token}`,
       },
       body: JSON.stringify({
         capturedMessage: params.capturedMessage,
@@ -60,6 +64,20 @@ export async function fetchRewrites(
         contactName: params.contactName ?? null,
       }),
     });
+
+    if (response.status === 401) {
+      return {
+        success: false,
+        message: 'Your secure session expired. Please try again.',
+      };
+    }
+
+    if (response.status === 429) {
+      return {
+        success: false,
+        message: 'You have reached today’s safety limit. Please try again tomorrow.',
+      };
+    }
 
     if (response.status === 422) {
       const data = (await response.json()) as { blocked?: boolean };
