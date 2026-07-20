@@ -1,5 +1,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import {
+  createClient,
+  type Session,
+  type SupabaseClient,
+} from '@supabase/supabase-js';
 
 export type { SupabaseClient };
 
@@ -39,6 +43,36 @@ export function getSupabaseClient(): SupabaseClient | null {
     client = createSupabaseClient();
   }
   return client;
+}
+
+/**
+ * Return a valid Supabase session for protected backend calls.
+ *
+ * Sentient allows users to try the core flow before creating a named account,
+ * so a missing session is upgraded to an anonymous Supabase user. Anonymous
+ * sign-ins must be enabled in the Supabase Auth dashboard.
+ */
+export async function ensureSupabaseSession(): Promise<Session | null> {
+  const supabase = getSupabaseClient();
+  if (!supabase) {
+    return null;
+  }
+
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  if (session?.access_token) {
+    return session;
+  }
+
+  const { data, error } = await supabase.auth.signInAnonymously();
+  if (error) {
+    console.warn('[supabase] anonymous sign-in failed', error.message);
+    return null;
+  }
+
+  return data.session;
 }
 
 export function resetSupabaseClientForTests(): void {
