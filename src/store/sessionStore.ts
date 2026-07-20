@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 
 import type {
+  CommunicationAnalysis,
   Intent,
   MessageInterpretation,
   RewriteOption,
@@ -16,6 +17,7 @@ interface SessionState {
   understanding: Understanding | null;
   perspective: string | null;
   interpretations: MessageInterpretation[];
+  analysis: CommunicationAnalysis | null;
   results: RewriteOption[];
   chosenReply: string;
   loading: boolean;
@@ -24,18 +26,14 @@ interface SessionState {
 }
 
 interface SessionActions {
-  setCapturedContext: (
-    message: string,
-    contactName: string,
-    sourceApp: string,
-  ) => void;
+  setCapturedContext: (message: string, contactName: string, sourceApp: string) => void;
   setCapturedMessage: (message: string) => void;
   setRoughDraft: (text: string) => void;
   setIntent: (intent: Intent) => void;
   setUnderstanding: (understanding: Understanding) => void;
   setResults: (
     results: RewriteOption[],
-    context?: MessageInterpretation[] | string,
+    context?: CommunicationAnalysis | MessageInterpretation[] | string,
   ) => void;
   setChosenReply: (text: string) => void;
   setLoading: (loading: boolean) => void;
@@ -54,12 +52,23 @@ const initialState: SessionState = {
   understanding: null,
   perspective: null,
   interpretations: [],
+  analysis: null,
   results: [],
   chosenReply: '',
   loading: false,
   error: null,
   showUnderstandingGrid: false,
 };
+
+function isCommunicationAnalysis(value: unknown): value is CommunicationAnalysis {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    Array.isArray((value as CommunicationAnalysis).possibleMeanings) &&
+    Array.isArray((value as CommunicationAnalysis).whatWeCannotKnow) &&
+    Array.isArray((value as CommunicationAnalysis).watchOutFor)
+  );
+}
 
 export const useSessionStore = create<SessionStore>((set) => ({
   ...initialState,
@@ -79,6 +88,7 @@ export const useSessionStore = create<SessionStore>((set) => ({
       results,
       perspective: typeof context === 'string' ? context : null,
       interpretations: Array.isArray(context) ? context : [],
+      analysis: isCommunicationAnalysis(context) ? context : null,
     }),
   setChosenReply: (text) => set({ chosenReply: text }),
   setLoading: (loading) => set({ loading }),
