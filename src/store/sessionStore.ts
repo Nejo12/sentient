@@ -1,6 +1,11 @@
 import { create } from 'zustand';
 
-import type { Intent, RewriteOption, Understanding } from '../types/rewrite';
+import type {
+  Intent,
+  MessageInterpretation,
+  RewriteOption,
+  Understanding,
+} from '../types/rewrite';
 
 interface SessionState {
   capturedMessage: string;
@@ -10,6 +15,7 @@ interface SessionState {
   intent: Intent | null;
   understanding: Understanding | null;
   perspective: string | null;
+  interpretations: MessageInterpretation[];
   results: RewriteOption[];
   chosenReply: string;
   loading: boolean;
@@ -27,7 +33,10 @@ interface SessionActions {
   setRoughDraft: (text: string) => void;
   setIntent: (intent: Intent) => void;
   setUnderstanding: (understanding: Understanding) => void;
-  setResults: (results: RewriteOption[], perspective?: string) => void;
+  setResults: (
+    results: RewriteOption[],
+    context?: MessageInterpretation[] | string,
+  ) => void;
   setChosenReply: (text: string) => void;
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
@@ -44,6 +53,7 @@ const initialState: SessionState = {
   intent: null,
   understanding: null,
   perspective: null,
+  interpretations: [],
   results: [],
   chosenReply: '',
   loading: false,
@@ -64,10 +74,11 @@ export const useSessionStore = create<SessionStore>((set) => ({
       ...(intent === 'missing' ? { understanding: null } : {}),
     }),
   setUnderstanding: (understanding) => set({ understanding }),
-  setResults: (results, perspective) =>
+  setResults: (results, context) =>
     set({
       results,
-      ...(perspective !== undefined ? { perspective } : {}),
+      perspective: typeof context === 'string' ? context : null,
+      interpretations: Array.isArray(context) ? context : [],
     }),
   setChosenReply: (text) => set({ chosenReply: text }),
   setLoading: (loading) => set({ loading }),

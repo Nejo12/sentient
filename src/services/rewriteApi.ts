@@ -1,5 +1,10 @@
 import { strings } from '../constants/strings';
-import type { Intent, RewriteOption, Understanding } from '../types/rewrite';
+import type {
+  Intent,
+  MessageInterpretation,
+  RewriteOption,
+  Understanding,
+} from '../types/rewrite';
 import { ensureSupabaseSession } from './supabase';
 
 export interface FetchRewritesParams {
@@ -13,6 +18,7 @@ export interface FetchRewritesParams {
 export type FetchRewritesSuccess = {
   success: true;
   perspective: string | null;
+  interpretations: MessageInterpretation[];
   options: RewriteOption[];
 };
 
@@ -35,6 +41,19 @@ function rewriteUrl(): string {
 function apiKeyHeader(): Record<string, string> {
   const anonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
   return anonKey ? { apikey: anonKey } : {};
+}
+
+function buildPerspective(interpretations: MessageInterpretation[]): string | null {
+  if (!interpretations.length) {
+    return null;
+  }
+
+  return interpretations
+    .map(
+      (item) =>
+        `${item.title} (${item.confidence} confidence) — ${item.explanation}`,
+    )
+    .join('\n\n');
 }
 
 export async function fetchRewrites(
@@ -108,13 +127,15 @@ export async function fetchRewrites(
     }
 
     const data = (await response.json()) as {
-      perspective?: string | null;
+      interpretations?: MessageInterpretation[];
       options: RewriteOption[];
     };
+    const interpretations = data.interpretations ?? [];
 
     return {
       success: true,
-      perspective: data.perspective ?? null,
+      perspective: buildPerspective(interpretations),
+      interpretations,
       options: data.options,
     };
   } catch {

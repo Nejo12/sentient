@@ -42,18 +42,27 @@ const rewriteOptions: RewriteOption[] = [
     tag: 'Calm',
     text: 'Thanks for saying this plainly. I want us to reset with care.',
     recommended: true,
+    rationale: 'It acknowledges the message and proposes a constructive next step.',
+    understandingScore: 88,
+    risks: [],
   },
   {
     label: 'Calm and warm',
     tag: 'Warm',
     text: 'I hear where you are coming from, and I want us to work through this.',
     recommended: false,
+    rationale: 'It validates their position before expressing a shared goal.',
+    understandingScore: 84,
+    risks: ['Could feel vague without a concrete next step.'],
   },
   {
     label: 'Calm and brief',
     tag: 'Brief',
     text: 'I hear you. Let us reset and move forward clearly.',
     recommended: false,
+    rationale: 'It reduces friction and keeps the reply concise.',
+    understandingScore: 76,
+    risks: ['May sound too brief for a sensitive exchange.'],
   },
 ];
 
@@ -104,6 +113,14 @@ describe('compare screen', () => {
     ).toBeTruthy();
   });
 
+  it('shows why a reply may work and its understanding score', () => {
+    const { getAllByText, getByText } = render(<CompareScreen />);
+
+    expect(getAllByText('Why this may work')).toHaveLength(3);
+    expect(getByText('It acknowledges the message and proposes a constructive next step.')).toBeTruthy();
+    expect(getByText('88%')).toBeTruthy();
+  });
+
   it('copies and sends back selected option', async () => {
     const { getAllByText } = render(<CompareScreen />);
 
@@ -143,8 +160,6 @@ describe('compare screen', () => {
       expect(Clipboard.setStringAsync).toHaveBeenCalledWith(rewriteOptions[0].text);
     });
 
-    // Persisted storage stays empty (listRewrites() may still show __DEV__
-    // sample data as a preview fallback — that's unrelated to this copy).
     const records = await listRewrites();
     expect(records.some((record) => record.fullText === rewriteOptions[0].text)).toBe(false);
   });
@@ -153,6 +168,7 @@ describe('compare screen', () => {
     (fetchRewrites as jest.Mock).mockResolvedValue({
       success: true,
       perspective: null,
+      interpretations: [],
       options: rewriteOptions,
     });
 
@@ -174,8 +190,6 @@ describe('compare screen', () => {
   it('goes back when the back button is pressed and there is back-history', () => {
     router.canGoBack.mockReturnValue(true);
 
-    // The back arrow button is the first accessibilityRole="button" element
-    // in the header row.
     const { getAllByRole } = render(<CompareScreen />);
     fireEvent.press(getAllByRole('button')[0]);
 
@@ -185,7 +199,6 @@ describe('compare screen', () => {
 
   it('falls back to the tab-bar home when the back button is pressed with no back-history', () => {
     router.canGoBack.mockReturnValue(false);
-
     const { getAllByRole } = render(<CompareScreen />);
     fireEvent.press(getAllByRole('button')[0]);
 
