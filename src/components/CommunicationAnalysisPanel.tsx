@@ -1,5 +1,6 @@
-import { AlertTriangle, HelpCircle, Search } from 'lucide-react-native';
-import { StyleSheet, Text, View } from 'react-native';
+import { AlertTriangle, ChevronDown, ChevronUp, HelpCircle, Search } from 'lucide-react-native';
+import { useState } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { strings } from '../constants/strings';
 import { colors, spacing } from '../theme/tokens';
@@ -19,6 +20,9 @@ const confidenceLabels: Record<InterpretationConfidence, string> = {
 };
 
 export function CommunicationAnalysisPanel({ analysis }: CommunicationAnalysisPanelProps) {
+  const [deepOpen, setDeepOpen] = useState(false);
+  const visibleMeanings = deepOpen ? analysis.possibleMeanings : analysis.possibleMeanings.slice(0, 2);
+
   return (
     <View style={styles.container}>
       <View style={styles.intro}>
@@ -34,7 +38,7 @@ export function CommunicationAnalysisPanel({ analysis }: CommunicationAnalysisPa
         </View>
 
         <View style={styles.meaningsStack}>
-          {analysis.possibleMeanings.map((meaning, index) => (
+          {visibleMeanings.map((meaning, index) => (
             <View key={`${meaning.title}-${index}`} style={styles.meaningItem}>
               <View style={styles.meaningHeader}>
                 <Text style={styles.meaningTitle}>{meaning.title}</Text>
@@ -48,7 +52,7 @@ export function CommunicationAnalysisPanel({ analysis }: CommunicationAnalysisPa
         </View>
       </Card>
 
-      {analysis.whatWeCannotKnow.length ? (
+      {deepOpen && analysis.whatWeCannotKnow.length ? (
         <Card style={styles.sectionCard} variant="panel">
           <View style={styles.sectionHeading}>
             <HelpCircle color={colors.olive} size={17} strokeWidth={2} />
@@ -63,7 +67,7 @@ export function CommunicationAnalysisPanel({ analysis }: CommunicationAnalysisPa
         </Card>
       ) : null}
 
-      {analysis.watchOutFor.length ? (
+      {deepOpen && analysis.watchOutFor.length ? (
         <Card style={styles.warningCard} variant="panel">
           <View style={styles.sectionHeading}>
             <AlertTriangle color={colors.destructive} size={17} strokeWidth={2} />
@@ -76,6 +80,22 @@ export function CommunicationAnalysisPanel({ analysis }: CommunicationAnalysisPa
             </View>
           ))}
         </Card>
+      ) : null}
+
+      {(analysis.possibleMeanings.length > 2 || analysis.whatWeCannotKnow.length > 0 || analysis.watchOutFor.length > 0) ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityState={{ expanded: deepOpen }}
+          onPress={() => setDeepOpen((current) => !current)}
+          style={({ pressed }) => [styles.disclosureButton, pressed && styles.pressed]}
+        >
+          <Text style={styles.disclosureText}>{deepOpen ? 'Show less' : 'Tell me more'}</Text>
+          {deepOpen ? (
+            <ChevronUp color={colors.oxblood} size={17} strokeWidth={2} />
+          ) : (
+            <ChevronDown color={colors.oxblood} size={17} strokeWidth={2} />
+          )}
+        </Pressable>
       ) : null}
     </View>
   );
@@ -175,5 +195,23 @@ const styles = StyleSheet.create({
     fontFamily: fonts.sans,
     fontSize: 13,
     lineHeight: 20,
+  },
+  disclosureButton: {
+    minHeight: 40,
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing[1],
+    paddingHorizontal: spacing[3],
+  },
+  disclosureText: {
+    color: colors.oxblood,
+    fontFamily: fonts.sansSemiBold,
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  pressed: {
+    opacity: 0.72,
   },
 });

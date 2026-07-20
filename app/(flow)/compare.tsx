@@ -1,6 +1,6 @@
 import * as Clipboard from 'expo-clipboard';
 import { router } from 'expo-router';
-import { ArrowLeft } from 'lucide-react-native';
+import { ArrowLeft, ChevronDown, ChevronUp } from 'lucide-react-native';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -8,13 +8,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { CommunicationAnalysisPanel } from '../../src/components/CommunicationAnalysisPanel';
 import { PerspectiveCard } from '../../src/components/PerspectiveCard';
 import { Pill } from '../../src/components/Pill';
+import { QuickReplyCard } from '../../src/components/QuickReplyCard';
 import { ResultCard } from '../../src/components/ResultCard';
 import { strings } from '../../src/constants/strings';
 import { UNDERSTANDING_OPTIONS } from '../../src/constants/understanding';
-import {
-  canRewrite,
-  incrementRewriteCount,
-} from '../../src/services/entitlements';
+import { canRewrite, incrementRewriteCount } from '../../src/services/entitlements';
 import { saveRewrite } from '../../src/services/historyService';
 import { fetchRewrites } from '../../src/services/rewriteApi';
 import { useSessionStore } from '../../src/store/sessionStore';
@@ -46,6 +44,8 @@ export default function CompareScreen() {
   const saveHistory = useSettingsStore((state) => state.saveHistory);
 
   const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
+  const [understandingOpen, setUnderstandingOpen] = useState(false);
+  const [alternativesOpen, setAlternativesOpen] = useState(false);
   const copyFeedbackTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(
@@ -68,10 +68,31 @@ export default function CompareScreen() {
     return strings.compare.doHeader(understandingLabel ?? 'Your');
   }, [intent, understanding]);
 
+  const recommendedOption = useMemo(
+    () => results.find((option) => option.recommended) ?? results[0] ?? null,
+    [results],
+  );
+
+  const alternativeOptions = useMemo(
+    () => results.filter((option) => option !== recommendedOption),
+    [recommendedOption, results],
+  );
+
+  const caution = useMemo(() => {
+    if (!analysis) {
+      return null;
+    }
+    if (analysis.watchOutFor.length) {
+      return analysis.watchOutFor[0];
+    }
+    if (analysis.possibleMeanings.length > 1) {
+      return 'Several reasonable interpretations remain possible. A clarifying reply may be safer than assuming tone.';
+    }
+    return null;
+  }, [analysis]);
+
   const regenerateLabel =
-    intent === 'missing'
-      ? strings.compare.regenerateMissing
-      : strings.compare.regenerateDo;
+    intent === 'missing' ? strings.compare.regenerateMissing : strings.compare.regenerateDo;
 
   const onRegenerate = async () => {
     if (!intent) {
@@ -80,6 +101,8 @@ export default function CompareScreen() {
 
     setError(null);
     setLoading(true);
+    setUnderstandingOpen(false);
+    setAlternativesOpen(false);
 
     if (!(await canRewrite())) {
       setError(`${strings.pro.limitReached} ${strings.pro.nudge}`);
@@ -142,42 +165,95 @@ export default function CompareScreen() {
             <ArrowLeft color={colors.ink55} size={16} strokeWidth={2} />
           </Pressable>
           <Text style={styles.headerTitle}>{headerTitle}</Text>
-          <Pill variant="neutral">{strings.compare.optionsPill}</Pill>
+          <Pill variant="neutral">Adaptive</Pill>
         </View>
 
         {copyFeedback ? <Text style={styles.copyFeedback}>{copyFeedback}</Text> : null}
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
         {loading ? (
-          <View style={styles.stack}>
-            {Array.from({ length: 3 }).map((_, index) => (
-              <View key={`skeleton-${index}`} style={styles.skeletonCard} testID="compare-skeleton-card">
-                <View style={[styles.skeletonLine, styles.skeletonTitle]} />
-                <View style={[styles.skeletonLine, styles.skeletonMeta]} />
-                <View style={[styles.skeletonLine, styles.skeletonBody]} />
-                <View style={[styles.skeletonLine, styles.skeletonBodyShort]} />
-              </View>
-            ))}
+          <View style={styles.loadingBlock}>
+            <Text style={styles.loadingTitle}>Understanding the message…</Text>
+            <Text style={styles.loadingBody}>Considering context, ambiguity, and the clearest safe reply.</Text>
+            <View style={styles.skeletonCard} testID="compare-skeleton-card">
+              <View style={[styles.skeletonLine, styles.skeletonTitle]} />
+              <View style={[styles.skeletonLine, styles.skeletonBody]} />
+              <View style={[styles.skeletonLine, styles.skeletonBodyShort]} />
+            </View>
           </View>
         ) : (
           <View style={styles.stack}>
-            {analysis ? <CommunicationAnalysisPanel analysis={analysis} /> : null}
+            {recommendedOption ? (
+              <QuickReplyCard
+                caution={caution}
+                onCopy={() => {
+                  void onCopy(recommendedOption.text);
+                }}
+                onSendBack={() => onSendBack(recommendedOption.text)}
+                option={recommendedOption}
+              />
+            ) : null}
+
+            {analysis ? (
+              <>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityState={{ expanded: understandingOpen }}
+                  onPress={() => setUnderstandingOpen((current) => !current)}
+                  style={({ pressed }) => [styles.disclosureButton, pressed && styles.pressed]}
+                >
+                  <Text style={styles.disclosureText}>
+                    {understandingOpen ? 'Hide understanding' : 'Understand more'}
+                  </Text>
+                  {understandingOpen ? (
+                    <ChevronUp color={colors.oxblood} size={18} strokeWidth={2} />
+                  ) : (
+                    <ChevronDown color={colors.oxblood} size={18} strokeWidth={2} />
+                  )}
+                </Pressable>
+                {understandingOpen ? <CommunicationAnalysisPanel analysis={analysis} /> : null}
+              </>
+            ) : null}
+
             {!analysis && intent === 'missing' && perspective ? (
               <PerspectiveCard text={perspective} />
             ) : null}
 
-            <Text style={styles.responsesHeading}>{strings.analysis.repliesTitle}</Text>
+            {alternativeOptions.length ? (
+              <>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityState={{ expanded: alternativesOpen }}
+                  onPress={() => setAlternativesOpen((current) => !current)}
+                  style={({ pressed }) => [styles.disclosureButton, pressed && styles.pressed]}
+                >
+                  <Text style={styles.disclosureText}>
+                    {alternativesOpen ? 'Hide alternatives' : `See ${alternativeOptions.length} other replies`}
+                  </Text>
+                  {alternativesOpen ? (
+                    <ChevronUp color={colors.oxblood} size={18} strokeWidth={2} />
+                  ) : (
+                    <ChevronDown color={colors.oxblood} size={18} strokeWidth={2} />
+                  )}
+                </Pressable>
 
-            {results.map((option) => (
-              <ResultCard
-                key={`${option.label}-${option.tag}-${option.text.slice(0, 16)}`}
-                onCopy={() => {
-                  void onCopy(option.text);
-                }}
-                onSendBack={() => onSendBack(option.text)}
-                option={option}
-              />
-            ))}
+                {alternativesOpen ? (
+                  <View style={styles.alternativesStack}>
+                    <Text style={styles.responsesHeading}>{strings.analysis.repliesTitle}</Text>
+                    {alternativeOptions.map((option) => (
+                      <ResultCard
+                        key={`${option.label}-${option.tag}-${option.text.slice(0, 16)}`}
+                        onCopy={() => {
+                          void onCopy(option.text);
+                        }}
+                        onSendBack={() => onSendBack(option.text)}
+                        option={option}
+                      />
+                    ))}
+                  </View>
+                ) : null}
+              </>
+            ) : null}
           </View>
         )}
 
@@ -241,12 +317,52 @@ const styles = StyleSheet.create({
   stack: {
     gap: spacing[3],
   },
+  alternativesStack: {
+    gap: spacing[3],
+  },
   responsesHeading: {
     marginTop: spacing[2],
     color: colors.ink,
     fontFamily: fonts.serif,
     fontSize: 23,
     lineHeight: 29,
+  },
+  disclosureButton: {
+    minHeight: 46,
+    borderRadius: radii.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.paperSoft,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing[1],
+    paddingHorizontal: spacing[3],
+  },
+  disclosureText: {
+    color: colors.oxblood,
+    fontFamily: fonts.sansSemiBold,
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  pressed: {
+    opacity: 0.72,
+  },
+  loadingBlock: {
+    gap: spacing[3],
+    paddingVertical: spacing[5],
+  },
+  loadingTitle: {
+    color: colors.ink,
+    fontFamily: fonts.serif,
+    fontSize: 24,
+    lineHeight: 30,
+  },
+  loadingBody: {
+    color: colors.ink55,
+    fontFamily: fonts.sans,
+    fontSize: 13,
+    lineHeight: 19,
   },
   skeletonCard: {
     borderRadius: radii.lg,
@@ -264,9 +380,6 @@ const styles = StyleSheet.create({
   skeletonTitle: {
     width: '44%',
     height: 14,
-  },
-  skeletonMeta: {
-    width: '32%',
   },
   skeletonBody: {
     width: '100%',
