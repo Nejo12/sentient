@@ -17,6 +17,12 @@ function StatusIcon({ check }: { check: DiagnosticCheck }) {
   return <CircleX color={colors.destructive} size={18} />;
 }
 
+function stateLabel(check: DiagnosticCheck): string {
+  if (check.state === 'ok') return 'Healthy';
+  if (check.state === 'warning') return 'Warning';
+  return 'Error';
+}
+
 export default function DiagnosticsScreen() {
   const [report, setReport] = useState<DiagnosticReport | null>(null);
   const [loading, setLoading] = useState(true);
@@ -64,7 +70,7 @@ export default function DiagnosticsScreen() {
           </Pressable>
           <View style={styles.headerCopy}>
             <Text style={styles.title}>Developer diagnostics</Text>
-            <Text style={styles.subtitle}>Internal health checks. No secret values are displayed.</Text>
+            <Text style={styles.subtitle}>Live internal health checks. No secret values are displayed.</Text>
           </View>
         </View>
 
@@ -102,7 +108,15 @@ export default function DiagnosticsScreen() {
               <View style={styles.checkHeader}>
                 <StatusIcon check={check} />
                 <Text style={styles.checkLabel}>{check.label}</Text>
-                <Text style={[styles.state, check.state === 'error' && styles.stateError]}>{check.state}</Text>
+                <Text
+                  style={[
+                    styles.state,
+                    check.state === 'warning' && styles.stateWarning,
+                    check.state === 'error' && styles.stateError,
+                  ]}
+                >
+                  {stateLabel(check)}
+                </Text>
               </View>
               <Text style={styles.detail}>{check.detail}</Text>
             </Card>
@@ -130,7 +144,8 @@ const styles = StyleSheet.create({
   checkCard: { padding: spacing[4], gap: spacing[2] },
   checkHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing[2] },
   checkLabel: { flex: 1, color: colors.ink, fontFamily: fonts.sansSemiBold, fontSize: 14 },
-  state: { color: colors.ink55, fontFamily: fonts.sansMedium, fontSize: 11, textTransform: 'uppercase' },
+  state: { color: colors.olive, fontFamily: fonts.sansMedium, fontSize: 11, textTransform: 'uppercase' },
+  stateWarning: { color: colors.clay },
   stateError: { color: colors.destructive },
   detail: { color: colors.ink72, fontFamily: fonts.sans, fontSize: 13, lineHeight: 19 },
 });
