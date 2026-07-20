@@ -133,7 +133,7 @@ describe('compare screen', () => {
   });
 
   it('progressively reveals meanings, uncertainty and communication risks', () => {
-    const { getByText, queryByText } = render(<CompareScreen />);
+    const { getAllByText, getByText, queryByText } = render(<CompareScreen />);
 
     fireEvent.press(getByText('Understand more'));
 
@@ -148,7 +148,9 @@ describe('compare screen', () => {
     expect(getByText('What we cannot know')).toBeTruthy();
     expect(getByText('Whether they want an apology, an explanation, or a concrete new plan.')).toBeTruthy();
     expect(getByText('Watch out for')).toBeTruthy();
-    expect(getByText('Defending yourself immediately could make them feel dismissed.')).toBeTruthy();
+    expect(
+      getAllByText('Defending yourself immediately could make them feel dismissed.'),
+    ).toHaveLength(2);
   });
 
   it('falls back to the legacy perspective card when structured analysis is absent', () => {
