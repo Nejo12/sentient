@@ -75,9 +75,9 @@ describe('history screen', () => {
   });
 
   it('makes the whole history card expandable and exposes its state', async () => {
-    const { getByLabelText, getByText } = render(<HistoryScreen />);
+    const { getByRole, getByText } = render(<HistoryScreen />);
 
-    const card = await waitFor(() => getByLabelText(expect.stringContaining('Reply to Sam')));
+    const card = await waitFor(() => getByRole('button', { name: /Reply to Sam/ }));
 
     expect(card.props.accessibilityState).toEqual({ expanded: false });
     expect(getByText(strings.history.expandHint)).toBeTruthy();
