@@ -4,6 +4,8 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const BLOCKED = 'Something here needs another look.';
 const HARD_DAILY_SAFETY_LIMIT = 100;
+const FUNCTION_VERSION = 'rewrite-v2.1';
+const MODEL = 'gpt-4o-mini';
 const SEVERE_MODERATION_CATEGORIES = [
   'sexual/minors',
   'self-harm/intent',
@@ -19,16 +21,11 @@ const corsHeaders: Record<string, string> = {
 };
 
 type Intent = 'do' | 'missing';
-type Understanding =
-  | 'calm'
-  | 'confident'
-  | 'curious'
-  | 'compassionate'
-  | 'firm'
-  | 'professional';
+type Understanding = 'calm' | 'confident' | 'curious' | 'compassionate' | 'firm' | 'professional';
 type Confidence = 'high' | 'medium' | 'low';
 
 interface RewriteRequest {
+  mode?: 'diagnostics';
   capturedMessage?: string;
   roughDraft?: string | null;
   intent?: Intent;
@@ -36,18 +33,8 @@ interface RewriteRequest {
   contactName?: string | null;
 }
 
-interface Meaning {
-  title: string;
-  confidence: Confidence;
-  explanation: string;
-}
-
-interface CommunicationAnalysis {
-  possibleMeanings: Meaning[];
-  whatWeCannotKnow: string[];
-  watchOutFor: string[];
-}
-
+interface Meaning { title: string; confidence: Confidence; explanation: string; }
+interface CommunicationAnalysis { possibleMeanings: Meaning[]; whatWeCannotKnow: string[]; watchOutFor: string[]; }
 interface ResponseOption {
   label: string;
   tag: string;
@@ -57,33 +44,18 @@ interface ResponseOption {
   understandingScore: number;
   risks: string[];
 }
+interface RewriteResponse { analysis: CommunicationAnalysis; responses: ResponseOption[]; }
 
-interface RewriteResponse {
-  analysis: CommunicationAnalysis;
-  responses: ResponseOption[];
-}
-
-const UNDERSTANDING_VALUES: Understanding[] = [
-  'calm',
-  'confident',
-  'curious',
-  'compassionate',
-  'firm',
-  'professional',
-];
+const UNDERSTANDING_VALUES: Understanding[] = ['calm', 'confident', 'curious', 'compassionate', 'firm', 'professional'];
 
 function jsonResponse(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-  });
+  return new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 }
 
 function buildSystemPrompt(intent: Intent, understanding: Understanding | null): string {
-  const goal =
-    intent === 'missing'
-      ? 'Help the user pause, interpret cautiously, and reply without escalating.'
-      : `Help the user reply so they are likely to be understood as ${understanding}.`;
+  const goal = intent === 'missing'
+    ? 'Help the user pause, interpret cautiously, and reply without escalating.'
+    : `Help the user reply so they are likely to be understood as ${understanding}.`;
 
   return [
     'You are Sentient, a communication-intelligence system. Optimise for successful mutual understanding, not merely better wording.',
@@ -103,11 +75,9 @@ function buildSystemPrompt(intent: Intent, understanding: Understanding | null):
 function isMeaning(value: unknown): value is Meaning {
   if (typeof value !== 'object' || value === null) return false;
   const item = value as Record<string, unknown>;
-  return (
-    typeof item.title === 'string' &&
+  return typeof item.title === 'string' &&
     (item.confidence === 'high' || item.confidence === 'medium' || item.confidence === 'low') &&
-    typeof item.explanation === 'string'
-  );
+    typeof item.explanation === 'string';
 }
 
 function isStringArray(value: unknown): value is string[] {
@@ -117,17 +87,10 @@ function isStringArray(value: unknown): value is string[] {
 function isResponseOption(value: unknown): value is ResponseOption {
   if (typeof value !== 'object' || value === null) return false;
   const option = value as Record<string, unknown>;
-  return (
-    typeof option.label === 'string' &&
-    typeof option.tag === 'string' &&
-    typeof option.text === 'string' &&
-    typeof option.recommended === 'boolean' &&
-    typeof option.rationale === 'string' &&
-    typeof option.understandingScore === 'number' &&
-    option.understandingScore >= 0 &&
-    option.understandingScore <= 100 &&
-    isStringArray(option.risks)
-  );
+  return typeof option.label === 'string' && typeof option.tag === 'string' &&
+    typeof option.text === 'string' && typeof option.recommended === 'boolean' &&
+    typeof option.rationale === 'string' && typeof option.understandingScore === 'number' &&
+    option.understandingScore >= 0 && option.understandingScore <= 100 && isStringArray(option.risks);
 }
 
 function parseRewriteResponse(raw: unknown): RewriteResponse | null {
@@ -141,7 +104,6 @@ function parseRewriteResponse(raw: unknown): RewriteResponse | null {
   if (!Array.isArray(parsed.responses) || parsed.responses.length !== 3) return null;
   if (!parsed.responses.every(isResponseOption)) return null;
   if (parsed.responses.filter((option) => option.recommended).length !== 1) return null;
-
   return {
     analysis: {
       possibleMeanings: analysis.possibleMeanings,
@@ -157,7 +119,6 @@ async function authenticateRequest(req: Request): Promise<string | null> {
   const anonKey = Deno.env.get('SUPABASE_ANON_KEY');
   const authorization = req.headers.get('Authorization');
   if (!supabaseUrl || !anonKey || !authorization?.startsWith('Bearer ')) return null;
-
   const userClient = createClient(supabaseUrl, anonKey, {
     global: { headers: { Authorization: authorization } },
     auth: { persistSession: false, autoRefreshToken: false },
@@ -170,10 +131,7 @@ async function consumeSafetyQuota(userId: string): Promise<'allowed' | 'blocked'
   const supabaseUrl = Deno.env.get('SUPABASE_URL');
   const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
   if (!supabaseUrl || !serviceRoleKey) return 'error';
-
-  const admin = createClient(supabaseUrl, serviceRoleKey, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
+  const admin = createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: false, autoRefreshToken: false } });
   const { data, error } = await admin.rpc('consume_rewrite_safety_quota', {
     p_user_id: userId,
     p_daily_limit: HARD_DAILY_SAFETY_LIMIT,
@@ -186,33 +144,67 @@ async function consumeSafetyQuota(userId: string): Promise<'allowed' | 'blocked'
   return result?.allowed === true ? 'allowed' : 'blocked';
 }
 
+function classifyOpenAIError(error: unknown): { code: string; state: string; detail: string; status: number } {
+  const value = error as { status?: number; code?: string; type?: string; message?: string };
+  const message = value?.message ?? 'OpenAI request failed';
+  if (value?.status === 401) return { code: 'OPENAI_INVALID_KEY', state: 'invalid_key', detail: 'The OpenAI API key was rejected.', status: 502 };
+  if (value?.status === 429) {
+    const billing = /quota|billing|credit|insufficient/i.test(message);
+    return billing
+      ? { code: 'OPENAI_BILLING_LIMIT', state: 'billing_limit', detail: 'OpenAI billing credit or project budget is exhausted.', status: 503 }
+      : { code: 'OPENAI_RATE_LIMIT', state: 'rate_limited', detail: 'OpenAI is temporarily rate limiting requests.', status: 503 };
+  }
+  if (value?.status === 408 || value?.status === 504) return { code: 'OPENAI_TIMEOUT', state: 'timeout', detail: 'OpenAI timed out.', status: 504 };
+  return { code: 'OPENAI_UNAVAILABLE', state: 'error', detail: message, status: 502 };
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
   if (req.method !== 'POST') return jsonResponse({ error: 'Method not allowed' }, 405);
 
   const userId = await authenticateRequest(req);
-  if (!userId) return jsonResponse({ error: 'Authentication required' }, 401);
+  if (!userId) return jsonResponse({ code: 'SUPABASE_AUTH_FAILED', error: 'Authentication required' }, 401);
 
   let body: RewriteRequest;
-  try {
-    body = await req.json();
-  } catch {
-    return jsonResponse({ error: 'Invalid JSON body' }, 400);
+  try { body = await req.json(); } catch { return jsonResponse({ code: 'INVALID_REQUEST', error: 'Invalid JSON body' }, 400); }
+
+  const apiKey = Deno.env.get('OPENAI_API_KEY');
+  if (!apiKey) return jsonResponse({ code: 'SERVER_CONFIGURATION_ERROR', error: 'OpenAI API key is not configured' }, 500);
+
+  if (body.mode === 'diagnostics') {
+    try {
+      const openai = new OpenAI({ apiKey });
+      await openai.models.retrieve(MODEL);
+      return jsonResponse({
+        ok: true,
+        version: FUNCTION_VERSION,
+        model: MODEL,
+        openai: { state: 'ok', detail: `Connected · ${MODEL}` },
+      });
+    } catch (error) {
+      const classified = classifyOpenAIError(error);
+      console.error('diagnostics openai error:', classified.code);
+      return jsonResponse({
+        ok: false,
+        version: FUNCTION_VERSION,
+        model: MODEL,
+        code: classified.code,
+        error: classified.detail,
+        openai: { state: classified.state, detail: classified.detail },
+      }, classified.status);
+    }
   }
 
   const { capturedMessage, roughDraft = null, intent, understanding = null, contactName = null } = body;
-  if (!capturedMessage?.trim()) return jsonResponse({ error: 'capturedMessage is required' }, 400);
-  if (intent !== 'do' && intent !== 'missing') return jsonResponse({ error: 'intent must be do or missing' }, 400);
+  if (!capturedMessage?.trim()) return jsonResponse({ code: 'INVALID_REQUEST', error: 'capturedMessage is required' }, 400);
+  if (intent !== 'do' && intent !== 'missing') return jsonResponse({ code: 'INVALID_REQUEST', error: 'intent must be do or missing' }, 400);
   if (intent === 'do' && (!understanding || !UNDERSTANDING_VALUES.includes(understanding))) {
-    return jsonResponse({ error: 'understanding is required for intent do' }, 400);
+    return jsonResponse({ code: 'INVALID_REQUEST', error: 'understanding is required for intent do' }, 400);
   }
 
   const quota = await consumeSafetyQuota(userId);
-  if (quota === 'blocked') return jsonResponse({ error: 'Daily safety limit reached' }, 429);
-  if (quota === 'error') return jsonResponse({ error: 'Usage verification unavailable' }, 503);
-
-  const apiKey = Deno.env.get('OPENAI_API_KEY');
-  if (!apiKey) return jsonResponse({ error: 'Server configuration error' }, 500);
+  if (quota === 'blocked') return jsonResponse({ code: 'SAFETY_QUOTA_EXCEEDED', error: 'Daily safety limit reached' }, 429);
+  if (quota === 'error') return jsonResponse({ code: 'USAGE_VERIFICATION_UNAVAILABLE', error: 'Usage verification unavailable' }, 503);
 
   try {
     const openai = new OpenAI({ apiKey });
@@ -220,43 +212,28 @@ serve(async (req) => {
     const mod = await openai.moderations.create({ input: moderationInput });
     const categories = mod.results[0]?.categories as Record<string, boolean> | undefined;
     if (SEVERE_MODERATION_CATEGORIES.some((category) => categories?.[category])) {
-      return jsonResponse({ blocked: true, message: BLOCKED }, 422);
+      return jsonResponse({ code: 'CONTENT_REQUIRES_REVIEW', blocked: true, message: BLOCKED }, 422);
     }
 
     const completion = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
+      model: MODEL,
       response_format: { type: 'json_object' },
       messages: [
         { role: 'system', content: buildSystemPrompt(intent, understanding) },
-        {
-          role: 'user',
-          content: [
-            `Message from ${contactName ?? 'contact'}:`,
-            capturedMessage,
-            '',
-            'User draft:',
-            roughDraft?.trim() ? roughDraft : '(none)',
-          ].join('\n'),
-        },
+        { role: 'user', content: [`Message from ${contactName ?? 'contact'}:`, capturedMessage, '', 'User draft:', roughDraft?.trim() ? roughDraft : '(none)'].join('\n') },
       ],
     });
 
     const content = completion.choices[0]?.message?.content;
-    if (!content) return jsonResponse({ error: 'Empty model response' }, 502);
-
+    if (!content) return jsonResponse({ code: 'EMPTY_MODEL_RESPONSE', error: 'Empty model response' }, 502);
     let parsed: unknown;
-    try {
-      parsed = JSON.parse(content);
-    } catch {
-      return jsonResponse({ error: 'Invalid model response' }, 502);
-    }
-
+    try { parsed = JSON.parse(content); } catch { return jsonResponse({ code: 'INVALID_MODEL_RESPONSE', error: 'Invalid model response' }, 502); }
     const response = parseRewriteResponse(parsed);
-    if (!response) return jsonResponse({ error: 'Model returned invalid communication analysis' }, 502);
+    if (!response) return jsonResponse({ code: 'INVALID_MODEL_RESPONSE', error: 'Model returned invalid communication analysis' }, 502);
     return jsonResponse(response);
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Rewrite request failed';
-    console.error('rewrite function error:', message);
-    return jsonResponse({ error: 'Rewrite request failed' }, 500);
+    const classified = classifyOpenAIError(error);
+    console.error('rewrite function error:', classified.code);
+    return jsonResponse({ code: classified.code, error: classified.detail }, classified.status);
   }
 });
