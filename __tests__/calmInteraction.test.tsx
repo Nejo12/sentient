@@ -1,4 +1,5 @@
 import { act, fireEvent, render } from '@testing-library/react-native';
+import { useState } from 'react';
 import { Text } from 'react-native';
 
 import { DisclosureSection } from '../src/components/adaptive/DisclosureSection';
@@ -7,8 +8,7 @@ import { ProgressLoader } from '../src/components/adaptive/ProgressLoader';
 describe('calm interaction components', () => {
   it('keeps disclosure content hidden until requested and exposes expansion state', () => {
     function Harness() {
-      const React = require('react') as typeof import('react');
-      const [expanded, setExpanded] = React.useState(false);
+      const [expanded, setExpanded] = useState(false);
 
       return (
         <DisclosureSection
