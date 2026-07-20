@@ -1,7 +1,8 @@
 {
   "cli": {
     "version": ">= 20.5.1",
-    "appVersionSource": "remote"
+    "appVersionSource": "remote",
+    "requireCommit": true
   },
   "build": {
     "development": {
@@ -9,14 +10,19 @@
       "distribution": "internal"
     },
     "preview": {
-      "distribution": "internal"
+      "distribution": "internal",
+      "channel": "preview"
     },
     "production": {
-      "autoIncrement": true
+      "autoIncrement": true,
+      "channel": "production"
     }
   },
   "submit": {
     "production": {
+      "android": {
+        "track": "internal"
+      },
       "ios": {
         "ascAppId": "6788651816"
       }
