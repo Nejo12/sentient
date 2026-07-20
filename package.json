@@ -9,7 +9,11 @@
     "ios": "expo run:ios",
     "web": "expo start --web",
     "lint": "expo lint",
+    "typecheck": "tsc --noEmit",
     "test": "jest",
+    "test:ci": "jest --runInBand --ci",
+    "release:check": "node scripts/release-check.mjs",
+    "validate": "npm run release:check && npm run typecheck && npm run lint && npm run test:ci",
     "build": "npx expo export --platform ios"
   },
   "dependencies": {
