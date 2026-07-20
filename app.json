@@ -10,12 +10,14 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.gee1216.sentient",
+      "buildNumber": "1",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
       "package": "com.gee1216.sentient",
+      "versionCode": 1,
       "adaptiveIcon": {
         "backgroundColor": "#F5EFE6",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
