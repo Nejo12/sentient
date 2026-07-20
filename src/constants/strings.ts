@@ -31,6 +31,19 @@ export const strings = {
     sendBack: 'Use this reply',
   },
 
+  analysis: {
+    eyebrow: 'Read between the lines',
+    title: 'See the situation clearly',
+    disclaimer: 'These are plausible readings of the words, not facts about what the other person thinks or feels.',
+    possibleMeanings: 'What might be happening',
+    cannotKnow: 'What we cannot know',
+    watchOutFor: 'Watch out for',
+    confidenceHigh: 'More likely',
+    confidenceMedium: 'Possible',
+    confidenceLow: 'Less certain',
+    repliesTitle: 'Choose how to respond',
+  },
+
   sendBack: {
     readyToSend: 'Your reply is ready',
     perspectiveTag: 'Perspective',
