@@ -5,6 +5,7 @@ import type {
   RewriteOption,
   Understanding,
 } from '../types/rewrite';
+import { recordRewriteDiagnostic } from './runtimeDiagnostics';
 import { ensureSupabaseSession } from './supabase';
 
 export interface FetchRewritesParams {
@@ -71,14 +72,26 @@ function fallbackCodeForStatus(status: number): string | undefined {
 }
 
 export async function fetchRewrites(params: FetchRewritesParams): Promise<FetchRewritesResult> {
+  const started = Date.now();
+  const finish = async <T extends FetchRewritesResult>(result: T): Promise<T> => {
+    await recordRewriteDiagnostic({
+      at: new Date().toISOString(),
+      kind: 'rewrite',
+      status: result.success ? 'success' : 'error',
+      code: result.success ? undefined : result.code,
+      latencyMs: Date.now() - started,
+    });
+    return result;
+  };
+
   try {
     const session = await ensureSupabaseSession();
     if (!session?.access_token) {
-      return {
+      return finish({
         success: false,
         code: 'SUPABASE_AUTH_FAILED',
         message: 'Sentient could not start a secure session. Please try again.',
-      };
+      });
     }
 
     const response = await fetch(rewriteUrl(), {
@@ -100,12 +113,12 @@ export async function fetchRewrites(params: FetchRewritesParams): Promise<FetchR
     if (response.status === 422) {
       const data = (await response.json()) as { blocked?: boolean; code?: string };
       if (data.blocked) {
-        return {
+        return finish({
           success: false,
           blocked: true,
           code: data.code,
           message: strings.errors.moderation,
-        };
+        });
       }
     }
 
@@ -126,19 +139,19 @@ export async function fetchRewrites(params: FetchRewritesParams): Promise<FetchR
               ? data.error
               : undefined;
 
-        return {
+        return finish({
           success: false,
           code,
           message: messageForCode(code, fallback),
-        };
+        });
       } catch {
-        return {
+        return finish({
           success: false,
           code: statusCode,
           message: statusCode
             ? messageForCode(statusCode)
             : `Sentient could not complete the request (HTTP ${response.status}).`,
-        };
+        });
       }
     }
 
@@ -147,18 +160,18 @@ export async function fetchRewrites(params: FetchRewritesParams): Promise<FetchR
       responses: RewriteOption[];
     };
 
-    return {
+    return finish({
       success: true,
       analysis: data.analysis,
       responses: data.responses,
       perspective: data.analysis,
       options: data.responses,
-    };
+    });
   } catch {
-    return {
+    return finish({
       success: false,
       code: 'NETWORK_ERROR',
       message: strings.errors.network,
-    };
+    });
   }
 }
