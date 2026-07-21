@@ -12,7 +12,10 @@
     "typecheck": "tsc --noEmit",
     "test": "jest",
     "test:ci": "jest --runInBand --ci",
-    "release:check": "node scripts/release-check.mjs",
+    "assets:generate": "node scripts/generate-release-assets.mjs",
+    "postinstall": "npm run assets:generate",
+    "eas-build-post-install": "npm run assets:generate",
+    "release:check": "npm run assets:generate && node scripts/release-check.mjs",
     "validate": "npm run release:check && npm run typecheck && npm run lint && npm run test:ci",
     "build": "npx expo export --platform ios"
   },
