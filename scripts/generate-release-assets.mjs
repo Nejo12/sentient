@@ -10,22 +10,29 @@ const oxblood = '#7F3523';
 
 await mkdir(outputDir, { recursive: true });
 
-const source = await readFile(brandSource);
+const source = await readFile(brandSource, 'utf8');
+const fullBleedIconSource = Buffer.from(
+  source.replace(
+    '<rect width="1024" height="1024" rx="284" fill="#7F3523"/>',
+    '<rect width="1024" height="1024" fill="#7F3523"/>',
+  ),
+);
+const roundedBrandSource = Buffer.from(source);
 
 async function writePng(name, pipeline) {
   const target = path.join(outputDir, name);
-  await pipeline.png({ compressionLevel: 9 }).toFile(target);
+  await pipeline.png({ compressionLevel: 9, adaptiveFiltering: false }).toFile(target);
   console.log(`Generated ${path.relative(root, target)}`);
 }
 
 await writePng(
   'icon.png',
-  sharp(source, { density: 1024 }).resize(1024, 1024).flatten({ background: warmPaper }),
+  sharp(fullBleedIconSource, { density: 1024 }).resize(1024, 1024).flatten({ background: oxblood }),
 );
 
 await writePng(
   'splash-icon.png',
-  sharp(source, { density: 1024 }).resize(512, 512).extend({
+  sharp(roundedBrandSource, { density: 1024 }).resize(512, 512).extend({
     top: 256,
     bottom: 256,
     left: 256,
@@ -84,5 +91,5 @@ await writePng(
 
 await writePng(
   'favicon.png',
-  sharp(source, { density: 256 }).resize(256, 256).flatten({ background: warmPaper }),
+  sharp(roundedBrandSource, { density: 256 }).resize(256, 256).flatten({ background: warmPaper }),
 );
