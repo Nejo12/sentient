@@ -26,12 +26,27 @@ for (const relativePath of [
   app.android?.adaptiveIcon?.foregroundImage,
   app.android?.adaptiveIcon?.backgroundImage,
   app.android?.adaptiveIcon?.monochromeImage,
+  './docs/index.html',
+  './docs/privacy.html',
+  './docs/support.html',
+  './docs/delete-account.html',
 ]) {
   if (!relativePath) continue;
   try {
     await access(new URL(`../${relativePath.replace(/^\.\//, '')}`, import.meta.url));
   } catch {
-    failures.push(`Configured asset does not exist: ${relativePath}`);
+    failures.push(`Required release file does not exist: ${relativePath}`);
+  }
+}
+
+const legalSource = await readFile(new URL('../src/constants/legal.ts', import.meta.url), 'utf8');
+for (const requiredUrl of [
+  'https://nejo12.github.io/sentient/privacy.html',
+  'https://nejo12.github.io/sentient/support.html',
+  'https://nejo12.github.io/sentient/delete-account.html',
+]) {
+  if (!legalSource.includes(requiredUrl)) {
+    failures.push(`Legal URL is not configured: ${requiredUrl}`);
   }
 }
 
