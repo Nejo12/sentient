@@ -61,34 +61,17 @@
     "experiments": {
       "typedRoutes": true
     },
-    "extra": {
-      "router": {},
-      "eas": {
-        "projectId": "d2686b00-588a-4e9b-9718-18ca6a773bac",
-        "build": {
-          "experimental": {
-            "ios": {
-              "appExtensions": [
-                {
-                  "targetName": "ShareExtension",
-                  "bundleIdentifier": "com.gee1216.sentient.share-extension",
-                  "entitlements": {
-                    "com.apple.security.application-groups": [
-                      "group.com.gee1216.sentient"
-                    ]
-                  }
-                }
-              ]
-            }
-          }
-        }
-      }
-    },
     "runtimeVersion": {
       "policy": "appVersion"
     },
     "updates": {
       "url": "https://u.expo.dev/d2686b00-588a-4e9b-9718-18ca6a773bac"
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "d2686b00-588a-4e9b-9718-18ca6a773bac"
+      }
     }
   }
 }
