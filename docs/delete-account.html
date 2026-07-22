@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Sentient — delete your account</title>
+<meta name="description" content="How to delete a Sentient account and associated data." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Serif+Display&display=swap" rel="stylesheet" />
+<style>
+  :root { --paper:#F5EFE6; --ink:#2B2521; --ink72:rgba(43,37,33,.72); --ink55:rgba(43,37,33,.55); --oxblood:#7F3523; --border:rgba(43,37,33,.12); }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--paper); color:var(--ink); font-family:'DM Sans',sans-serif; line-height:1.65; }
+  .wrap { max-width:680px; margin:0 auto; padding:56px 24px 96px; }
+  a { color:var(--oxblood); }
+  a.back { display:inline-block; text-decoration:none; font-size:13.5px; font-weight:600; margin-bottom:32px; }
+  h1 { font-family:'DM Serif Display',serif; font-weight:400; font-size:32px; margin:0 0 8px; }
+  .lead { color:var(--ink72); margin:0 0 32px; }
+  .card { background:rgba(255,255,255,.6); border:1px solid var(--border); border-radius:16px; padding:28px 32px; }
+  h2 { font-size:16px; margin:30px 0 10px; }
+  h2:first-child { margin-top:0; }
+  p, li { font-size:14.5px; color:var(--ink72); }
+  ol, ul { padding-left:20px; }
+  li { margin-bottom:8px; }
+  .warning { border-left:4px solid var(--oxblood); padding-left:16px; }
+  footer { margin-top:48px; border-top:1px solid var(--border); padding-top:24px; font-size:13px; color:var(--ink55); }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <a class="back" href="./index.html">&larr; Sentient</a>
+    <h1>Delete your account</h1>
+    <p class="lead">Signed-in users can start permanent account deletion directly inside Sentient.</p>
+
+    <div class="card">
+      <h2>Delete from the app</h2>
+      <ol>
+        <li>Open Sentient and select the <strong>You</strong> tab.</li>
+        <li>Under <strong>Account</strong>, confirm that you are signed in to the account you intend to delete.</li>
+        <li>Select <strong>Delete account</strong>.</li>
+        <li>Review the warning and confirm deletion.</li>
+      </ol>
+
+      <h2>What is deleted</h2>
+      <p>
+        The deletion request removes the Sentient authentication account and associated persisted
+        Sentient data, including saved rewrite history and account-scoped settings held by Sentient.
+        Data that must be retained temporarily for security, fraud prevention or legal obligations may
+        be retained only for the required period.
+      </p>
+
+      <h2>Subscriptions are separate</h2>
+      <p>
+        Deleting a Sentient account does not automatically cancel an App Store or Google Play
+        subscription. Cancel recurring billing separately in your store subscription settings.
+      </p>
+
+      <h2 class="warning">Deletion is permanent</h2>
+      <p>
+        Account deletion cannot be undone. A later return to Sentient requires creating a new account,
+        and deleted rewrite history cannot be restored.
+      </p>
+
+      <h2>Cannot access the app?</h2>
+      <p>
+        Contact <a href="mailto:larneygee@gmail.com?subject=Sentient%20account%20deletion">larneygee@gmail.com</a>
+        from the email address associated with the account. Do not include passwords, private messages,
+        access tokens or payment details. Additional verification may be required before an external
+        deletion request can be processed.
+      </p>
+
+      <h2>More information</h2>
+      <p>
+        See the <a href="./privacy.html">privacy policy</a> or <a href="./support.html">support page</a>.
+      </p>
+    </div>
+
+    <footer>&copy; 2026 Sentient</footer>
+  </div>
+</body>
+</html>
