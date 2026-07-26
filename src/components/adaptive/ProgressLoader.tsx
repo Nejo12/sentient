@@ -60,9 +60,10 @@ const styles = StyleSheet.create({
   },
   title: {
     color: colors.ink,
-    fontFamily: fonts.serif,
-    fontSize: 24,
-    lineHeight: 30,
+    fontFamily: fonts.sansSemiBold,
+    fontWeight: '600',
+    fontSize: 20,
+    lineHeight: 26,
   },
   body: {
     color: colors.ink55,
