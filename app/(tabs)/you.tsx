@@ -504,8 +504,9 @@ const styles = StyleSheet.create({
   },
   proTitle: {
     color: colors.oxbloodFg,
-    fontFamily: fonts.serif,
-    fontSize: 22,
+    fontFamily: fonts.sansSemiBold,
+    fontWeight: '600',
+    fontSize: 20,
     lineHeight: 26,
   },
   proBody: {

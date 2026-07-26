@@ -317,10 +317,10 @@ const styles = StyleSheet.create({
   headerTitle: {
     flex: 1,
     color: colors.ink,
-    fontFamily: fonts.serif,
-    fontSize: 32,
-    lineHeight: 38,
-    letterSpacing: -0.4,
+    fontFamily: fonts.sansSemiBold,
+    fontWeight: '600',
+    fontSize: 22,
+    lineHeight: 28,
   },
   copyFeedback: {
     color: colors.olive,
@@ -374,9 +374,10 @@ const styles = StyleSheet.create({
   responsesHeading: {
     marginTop: spacing[2],
     color: colors.ink,
-    fontFamily: fonts.serif,
-    fontSize: 23,
-    lineHeight: 29,
+    fontFamily: fonts.sansSemiBold,
+    fontWeight: '600',
+    fontSize: 18,
+    lineHeight: 24,
   },
   pressed: {
     opacity: 0.76,
