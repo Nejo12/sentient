@@ -179,7 +179,7 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing[3] },
   backButton: { width: 34, height: 34, borderRadius: radii.pill, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
   headerCopy: { flex: 1, gap: spacing[1] },
-  title: { color: colors.ink, fontFamily: fonts.serif, fontSize: 30, lineHeight: 36 },
+  title: { color: colors.ink, fontFamily: fonts.sansSemiBold, fontWeight: '600', fontSize: 22, lineHeight: 28 },
   subtitle: { color: colors.ink55, fontFamily: fonts.sans, fontSize: 13, lineHeight: 19 },
   summaryCard: { padding: spacing[4], gap: spacing[1] },
   summaryTitle: { color: colors.ink, fontFamily: fonts.sansSemiBold, fontSize: 15 },
